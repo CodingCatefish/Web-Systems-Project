@@ -1,0 +1,686 @@
+/* =====================================================
+   PageTurner Books – Custom Stylesheet
+   ===================================================== */
+
+/* ---------- CSS Custom Properties ---------- */
+:root {
+  --color-primary: #3d5a80;
+  --color-primary-dark: #293241;
+  --color-accent: #e07b39;
+  --color-accent-hover: #c4652a;
+  --color-light-bg: #f8f5f0;
+  --color-text: #2d2d2d;
+  --color-muted: #6c757d;
+  --font-heading: 'Georgia', serif;
+  --font-body: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.12);
+  --transition: 0.25s ease;
+}
+
+/* ---------- Base ---------- */
+body {
+  font-family: var(--font-body);
+  color: var(--color-text);
+  background-color: #fff;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
+}
+
+a {
+  color: var(--color-primary);
+  text-decoration: none;
+}
+
+a:hover {
+  color: var(--color-accent);
+}
+
+/* ---------- Navbar ---------- */
+.navbar-custom {
+  background-color: var(--color-primary-dark);
+  padding: 0.75rem 1rem;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.25);
+}
+
+.navbar-custom .navbar-brand {
+  font-family: var(--font-heading);
+  font-size: 1.5rem;
+  color: #fff;
+  font-weight: bold;
+  letter-spacing: 0.5px;
+}
+
+.navbar-custom .navbar-brand span {
+  color: var(--color-accent);
+}
+
+.navbar-custom .nav-link {
+  color: rgba(255,255,255,0.85) !important;
+  font-size: 0.95rem;
+  margin: 0 0.25rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 4px;
+  transition: background var(--transition), color var(--transition);
+}
+
+.navbar-custom .nav-link:hover,
+.navbar-custom .nav-link.active {
+  color: #fff !important;
+  background-color: rgba(255,255,255,0.12);
+}
+
+.navbar-toggler {
+  border-color: rgba(255,255,255,0.4);
+}
+
+.navbar-toggler-icon {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba%28255, 255, 255, 0.8%29' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
+}
+
+/* Cart icon badge */
+.cart-btn {
+  position: relative;
+  color: rgba(255,255,255,0.85) !important;
+  transition: color var(--transition);
+}
+
+.cart-btn:hover {
+  color: #fff !important;
+}
+
+#cart-count {
+  position: absolute;
+  top: -4px;
+  right: -8px;
+  font-size: 0.65rem;
+  background: var(--color-accent);
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  color: #fff;
+}
+
+/* ---------- Hero Section ---------- */
+.hero {
+  background: linear-gradient(135deg, var(--color-primary-dark) 0%, var(--color-primary) 60%, #4a7fa5 100%);
+  color: #fff;
+  padding: 6rem 0 5rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.hero::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 100%;
+  height: 60px;
+  background: #fff;
+  clip-path: ellipse(55% 100% at 50% 100%);
+}
+
+.hero h1 {
+  font-size: clamp(2rem, 5vw, 3.5rem);
+  font-weight: bold;
+  line-height: 1.2;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
+.hero .lead {
+  font-size: clamp(1rem, 2.5vw, 1.25rem);
+  opacity: 0.9;
+  max-width: 560px;
+}
+
+.hero-book-icon {
+  font-size: clamp(6rem, 15vw, 12rem);
+  line-height: 1;
+  text-align: center;
+  filter: drop-shadow(0 8px 24px rgba(0,0,0,0.3));
+}
+
+/* ---------- Buttons ---------- */
+.btn-accent {
+  background-color: var(--color-accent);
+  color: #fff;
+  border: none;
+  padding: 0.65rem 1.5rem;
+  border-radius: 4px;
+  font-weight: 600;
+  transition: background var(--transition), transform var(--transition);
+}
+
+.btn-accent:hover {
+  background-color: var(--color-accent-hover);
+  color: #fff;
+  transform: translateY(-2px);
+}
+
+.btn-outline-light:hover {
+  background-color: rgba(255,255,255,0.15);
+}
+
+/* ---------- Section Spacing ---------- */
+.section {
+  padding: 5rem 0;
+}
+
+.section-alt {
+  background-color: var(--color-light-bg);
+}
+
+.section-title {
+  font-size: clamp(1.5rem, 4vw, 2.25rem);
+  color: var(--color-primary-dark);
+  margin-bottom: 0.5rem;
+}
+
+.section-divider {
+  width: 60px;
+  height: 4px;
+  background: var(--color-accent);
+  border-radius: 2px;
+  margin: 0 auto 2.5rem;
+}
+
+.section-divider.left {
+  margin-left: 0;
+}
+
+/* ---------- Feature Cards ---------- */
+.feature-card {
+  border: none;
+  border-radius: 10px;
+  padding: 2rem 1.5rem;
+  text-align: center;
+  background: #fff;
+  box-shadow: var(--shadow-sm);
+  transition: transform var(--transition), box-shadow var(--transition);
+  height: 100%;
+}
+
+.feature-card:hover {
+  transform: translateY(-6px);
+  box-shadow: var(--shadow-md);
+}
+
+.feature-icon {
+  font-size: 2.5rem;
+  margin-bottom: 1rem;
+}
+
+.feature-card h5 {
+  color: var(--color-primary-dark);
+  margin-bottom: 0.5rem;
+}
+
+/* ---------- Book Cards ---------- */
+.book-card {
+  border: none;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  transition: transform var(--transition), box-shadow var(--transition);
+  background: #fff;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.book-card:hover {
+  transform: translateY(-6px);
+  box-shadow: var(--shadow-md);
+}
+
+.book-cover {
+  width: 100%;
+  aspect-ratio: 2/3;
+  object-fit: cover;
+  background: #e9ecef;
+}
+
+/* Placeholder covers using CSS */
+.book-cover-placeholder {
+  width: 100%;
+  aspect-ratio: 2/3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 4rem;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.book-card .card-body {
+  flex: 1;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.book-card .card-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--color-primary-dark);
+  margin-bottom: 0.25rem;
+  line-height: 1.3;
+}
+
+.book-card .card-subtitle {
+  font-size: 0.85rem;
+  color: var(--color-muted);
+  margin-bottom: 0.5rem;
+}
+
+.book-price {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--color-accent);
+}
+
+.book-price-original {
+  font-size: 0.85rem;
+  color: var(--color-muted);
+  text-decoration: line-through;
+}
+
+.badge-genre {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.3em 0.65em;
+  border-radius: 50px;
+  background-color: rgba(61, 90, 128, 0.12);
+  color: var(--color-primary);
+}
+
+.star-rating {
+  color: #f6c90e;
+  font-size: 0.8rem;
+}
+
+.btn-add-cart {
+  background-color: var(--color-primary);
+  color: #fff;
+  border: none;
+  font-size: 0.85rem;
+  padding: 0.4rem 1rem;
+  border-radius: 4px;
+  transition: background var(--transition);
+  width: 100%;
+}
+
+.btn-add-cart:hover {
+  background-color: var(--color-primary-dark);
+  color: #fff;
+}
+
+/* ---------- Genre / Category Pills ---------- */
+.genre-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 2rem;
+}
+
+.genre-pill {
+  padding: 0.4rem 1.1rem;
+  border-radius: 50px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 2px solid var(--color-primary);
+  background: transparent;
+  color: var(--color-primary);
+  transition: background var(--transition), color var(--transition);
+}
+
+.genre-pill:hover,
+.genre-pill.active {
+  background: var(--color-primary);
+  color: #fff;
+}
+
+/* ---------- Search Bar ---------- */
+.search-bar-wrap {
+  max-width: 480px;
+  margin: 0 auto 2.5rem;
+}
+
+#book-search {
+  border-radius: 50px 0 0 50px;
+  border: 2px solid var(--color-primary);
+  padding: 0.6rem 1.2rem;
+}
+
+#book-search:focus {
+  box-shadow: none;
+  border-color: var(--color-accent);
+}
+
+.search-bar-wrap .btn {
+  border-radius: 0 50px 50px 0;
+  background: var(--color-primary);
+  color: #fff;
+  border: 2px solid var(--color-primary);
+  padding: 0.6rem 1.2rem;
+}
+
+.search-bar-wrap .btn:hover {
+  background: var(--color-primary-dark);
+  border-color: var(--color-primary-dark);
+}
+
+/* ---------- Cart Toast ---------- */
+#cart-toast {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  z-index: 1100;
+}
+
+/* ---------- Testimonial Cards ---------- */
+.testimonial-card {
+  background: #fff;
+  border-radius: 10px;
+  padding: 1.75rem;
+  box-shadow: var(--shadow-sm);
+  position: relative;
+  height: 100%;
+}
+
+.testimonial-card::before {
+  content: '\201C';
+  font-family: Georgia, serif;
+  font-size: 5rem;
+  color: var(--color-accent);
+  opacity: 0.25;
+  position: absolute;
+  top: -10px;
+  left: 16px;
+  line-height: 1;
+}
+
+.testimonial-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  color: #fff;
+  font-weight: bold;
+  margin-right: 0.75rem;
+}
+
+/* ---------- Newsletter ---------- */
+.newsletter-section {
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
+  color: #fff;
+  padding: 4rem 0;
+  text-align: center;
+}
+
+.newsletter-section h2 {
+  font-size: clamp(1.5rem, 4vw, 2.25rem);
+}
+
+#newsletter-form .form-control {
+  border-radius: 4px 0 0 4px;
+  padding: 0.75rem 1.25rem;
+  border: none;
+  max-width: 340px;
+}
+
+#newsletter-form .btn {
+  border-radius: 0 4px 4px 0;
+  background: var(--color-accent);
+  color: #fff;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  font-weight: 600;
+}
+
+#newsletter-form .btn:hover {
+  background: var(--color-accent-hover);
+}
+
+.newsletter-success {
+  display: none;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+/* ---------- About Page ---------- */
+.about-hero {
+  background: linear-gradient(135deg, var(--color-primary-dark) 0%, var(--color-primary) 100%);
+  color: #fff;
+  padding: 5rem 0 4rem;
+}
+
+.about-hero h1 {
+  font-size: clamp(2rem, 5vw, 3rem);
+}
+
+.stat-card {
+  text-align: center;
+  padding: 2rem 1rem;
+}
+
+.stat-number {
+  font-size: 2.75rem;
+  font-weight: 700;
+  color: var(--color-accent);
+  font-family: var(--font-heading);
+  line-height: 1;
+}
+
+.stat-label {
+  color: var(--color-muted);
+  font-size: 0.9rem;
+  margin-top: 0.25rem;
+}
+
+.team-card {
+  text-align: center;
+  background: #fff;
+  border-radius: 10px;
+  padding: 2rem 1.5rem;
+  box-shadow: var(--shadow-sm);
+  transition: transform var(--transition), box-shadow var(--transition);
+}
+
+.team-card:hover {
+  transform: translateY(-5px);
+  box-shadow: var(--shadow-md);
+}
+
+.team-avatar {
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  color: #fff;
+  margin: 0 auto 1rem;
+}
+
+.team-card h5 {
+  color: var(--color-primary-dark);
+  margin-bottom: 0.25rem;
+}
+
+.team-card .role {
+  color: var(--color-accent);
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+}
+
+/* ---------- Contact / Map Section ---------- */
+.contact-info-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.contact-icon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+  color: var(--color-accent);
+}
+
+/* ---------- Back-to-Top Button ---------- */
+#back-to-top {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  display: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: #fff;
+  border: none;
+  font-size: 1.1rem;
+  cursor: pointer;
+  z-index: 1050;
+  box-shadow: var(--shadow-md);
+  transition: background var(--transition), opacity var(--transition);
+  align-items: center;
+  justify-content: center;
+}
+
+#back-to-top:hover {
+  background: var(--color-primary-dark);
+}
+
+/* ---------- Footer ---------- */
+.footer {
+  background-color: var(--color-primary-dark);
+  color: rgba(255,255,255,0.7);
+  padding: 3rem 0 1.5rem;
+}
+
+.footer h5 {
+  color: #fff;
+  font-size: 1rem;
+  margin-bottom: 1rem;
+}
+
+.footer ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.footer ul li {
+  margin-bottom: 0.5rem;
+}
+
+.footer ul li a {
+  color: rgba(255,255,255,0.65);
+  transition: color var(--transition);
+  font-size: 0.9rem;
+}
+
+.footer ul li a:hover {
+  color: var(--color-accent);
+}
+
+.footer-brand {
+  font-family: var(--font-heading);
+  font-size: 1.4rem;
+  color: #fff;
+  font-weight: bold;
+}
+
+.footer-brand span {
+  color: var(--color-accent);
+}
+
+.footer-divider {
+  border-color: rgba(255,255,255,0.12);
+  margin: 2rem 0 1rem;
+}
+
+.social-links a {
+  color: rgba(255,255,255,0.65);
+  font-size: 1.2rem;
+  margin-right: 0.75rem;
+  transition: color var(--transition);
+}
+
+.social-links a:hover {
+  color: var(--color-accent);
+}
+
+/* ---------- Scroll Animations ---------- */
+.fade-in-up {
+  opacity: 0;
+  transform: translateY(30px);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+
+.fade-in-up.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ---------- No Results ---------- */
+#no-results {
+  display: none;
+  text-align: center;
+  padding: 3rem 0;
+  color: var(--color-muted);
+}
+
+#no-results .icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+/* ---------- Responsive Adjustments ---------- */
+@media (max-width: 576px) {
+  .hero {
+    padding: 4rem 0 4rem;
+    text-align: center;
+  }
+
+  .hero .lead {
+    margin: 0 auto;
+  }
+
+  .hero-book-icon {
+    margin-top: 2rem;
+  }
+
+  #newsletter-form {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  #newsletter-form .form-control {
+    border-radius: 4px;
+    width: 100%;
+    margin-bottom: 0.5rem;
+  }
+
+  #newsletter-form .btn {
+    border-radius: 4px;
+    width: 100%;
+  }
+}
