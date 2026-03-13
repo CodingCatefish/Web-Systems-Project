@@ -3,393 +3,138 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="About PageTurner Books – Our story, mission, team and how to reach us." />
-  <title>About Us – PageTurner Books</title>
-
-  <!-- Bootstrap 5 CSS -->
-  <link
-    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
-    rel="stylesheet"
-    integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
-    crossorigin="anonymous"
-  />
-  <!-- Bootstrap Icons -->
-  <link
-    href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
-    rel="stylesheet"
-  />
-  <!-- Custom CSS -->
+  <meta name="description" content="About The Inkwell Bookstore." />
+  <title>The Inkwell - About</title>
   <link rel="stylesheet" href="css/styles.css" />
 </head>
 <body>
-
-  <!-- ======================================================
-       NAVIGATION
-  ====================================================== -->
-  <nav class="navbar navbar-expand-lg navbar-custom sticky-top">
-    <div class="container">
-      <a class="navbar-brand" href="index.html">
-        <i class="bi bi-book-half me-2"></i>Page<span>Turner</span>
-      </a>
-
-      <button
-        class="navbar-toggler"
-        type="button"
-        data-bs-toggle="collapse"
-        data-bs-target="#mainNav"
-        aria-controls="mainNav"
-        aria-expanded="false"
-        aria-label="Toggle navigation"
-      >
-        <span class="navbar-toggler-icon"></span>
-      </button>
-
-      <div class="collapse navbar-collapse" id="mainNav">
-        <ul class="navbar-nav ms-auto align-items-lg-center">
-          <li class="nav-item">
-            <a class="nav-link" href="index.html">Home</a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link" href="books.html">Books</a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link" href="about.html">About Us</a>
-          </li>
-          <li class="nav-item ms-lg-3">
-            <a class="nav-link cart-btn" href="#" aria-label="Shopping cart">
-              <i class="bi bi-cart3 fs-5"></i>
-              <span id="cart-count" style="display:none;">0</span>
-            </a>
-          </li>
-        </ul>
+  <div class="site-shell">
+    <header class="site-header">
+      <div class="container header-row">
+        <a class="brand" href="index.html"><span class="brand-mark">B</span> The Inkwell</a>
+        <nav class="nav-links" aria-label="Main navigation">
+          <a class="nav-link" href="index.html">Home</a>
+          <a class="nav-link" href="books.html">Catalog</a>
+          <a class="nav-link" href="services.html">Services</a>
+          <a class="nav-link" href="about.html">About</a>
+          <a class="cart-link" href="books.html">Bag <span id="cart-count">0</span></a>
+        </nav>
       </div>
-    </div>
-  </nav>
+    </header>
 
-  <!-- ======================================================
-       ABOUT HERO
-  ====================================================== -->
-  <section class="about-hero">
-    <div class="container text-center">
-      <p class="text-uppercase fw-semibold mb-2" style="color:var(--color-accent);letter-spacing:2px;">Our Story</p>
-      <h1 class="fw-bold mb-3">About PageTurner Books</h1>
-      <p class="lead opacity-75 mx-auto" style="max-width:580px;">
-        Founded by book lovers, for book lovers. We've been connecting readers
-        with their next great story since 2010.
-      </p>
-    </div>
-  </section>
+    <main>
+      <section class="page-hero">
+        <div class="container reveal">
+          <h1 class="section-title">About The Inkwell</h1>
+          <p class="section-text">A neighborhood bookstore built around stories, conversation, and connection.</p>
+        </div>
+      </section>
 
-  <!-- ======================================================
-       OUR MISSION
-  ====================================================== -->
-  <section class="section">
-    <div class="container">
-      <div class="row align-items-center g-5">
-        <div class="col-lg-6 fade-in-up">
-          <p class="text-uppercase fw-semibold mb-2" style="color:var(--color-accent);letter-spacing:1px;">Our Mission</p>
-          <h2 class="section-title mb-3">We Believe in the Power of Stories</h2>
-          <div class="section-divider left"></div>
-          <p class="text-muted">
-            At PageTurner Books, we believe that the right book at the right time can change your life.
-            Our mission is simple: help every reader find that book. Whether you're looking for an
-            escape, new knowledge, a new perspective, or just a good story—we've got you covered.
-          </p>
-          <p class="text-muted">
-            We carefully curate our catalog, working with independent publishers and established
-            houses alike to bring you the widest and most interesting selection possible. Every title
-            on our shelves has been reviewed and loved by a member of our team.
-          </p>
-          <a href="books.html" class="btn btn-accent mt-3">
-            <i class="bi bi-book me-1"></i> Explore Our Catalog
-          </a>
+      <section class="section" style="padding-top: 1rem;">
+        <div class="container about-split">
+          <div class="panel reveal" style="overflow:hidden; padding:0;">
+            <img src="https://picsum.photos/seed/storefront/900/900" alt="The Inkwell storefront" referrerpolicy="no-referrer">
+          </div>
+          <article class="reveal">
+            <h2 class="section-title">Our Story</h2>
+            <p>
+              Founded in 2015, The Inkwell started with one idea: a bookstore should feel like the heart of its neighborhood.
+              We wanted a place where readers could discover new voices, revisit old favorites, and meet people who love stories.
+            </p>
+            <p>
+              Today, we host author talks, monthly reading circles, and collaborative learning events while maintaining a carefully
+              selected catalog. Whether you are a long-time bibliophile or a casual weekend reader, there is always a spot for you here.
+            </p>
+          </article>
         </div>
-        <div class="col-lg-6 fade-in-up">
-          <div class="text-center" style="font-size: clamp(5rem, 12vw, 9rem); line-height:1;">📖</div>
-        </div>
-      </div>
-    </div>
-  </section>
+      </section>
 
-  <!-- ======================================================
-       STATS
-  ====================================================== -->
-  <section class="section section-alt">
-    <div class="container">
-      <div class="text-center mb-2">
-        <h2 class="section-title">PageTurner by the Numbers</h2>
-      </div>
-      <div class="section-divider mx-auto"></div>
-
-      <div class="row g-4 text-center">
-        <div class="col-6 col-md-3 fade-in-up">
-          <div class="stat-card">
-            <div class="stat-number" data-target="15000" data-suffix="+">0</div>
-            <div class="stat-label">Titles in Stock</div>
-          </div>
-        </div>
-        <div class="col-6 col-md-3 fade-in-up">
-          <div class="stat-card">
-            <div class="stat-number" data-target="42000" data-suffix="+">0</div>
-            <div class="stat-label">Happy Readers</div>
-          </div>
-        </div>
-        <div class="col-6 col-md-3 fade-in-up">
-          <div class="stat-card">
-            <div class="stat-number" data-target="14" data-suffix="">0</div>
-            <div class="stat-label">Years in Business</div>
-          </div>
-        </div>
-        <div class="col-6 col-md-3 fade-in-up">
-          <div class="stat-card">
-            <div class="stat-number" data-target="200" data-suffix="+">0</div>
-            <div class="stat-label">Publishers Partnered</div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ======================================================
-       MEET THE TEAM
-  ====================================================== -->
-  <section class="section">
-    <div class="container">
-      <div class="text-center mb-2">
-        <h2 class="section-title">Meet the Team</h2>
-      </div>
-      <div class="section-divider mx-auto"></div>
-
-      <div class="row g-4 justify-content-center">
-        <div class="col-sm-6 col-md-4 col-lg-3 fade-in-up">
-          <div class="team-card">
-            <div class="team-avatar">E</div>
-            <h5>Eleanor Walsh</h5>
-            <p class="role">Founder &amp; CEO</p>
-            <p class="text-muted small">A lifelong bibliophile who started PageTurner in her living room with just 500 titles.</p>
-          </div>
-        </div>
-        <div class="col-sm-6 col-md-4 col-lg-3 fade-in-up">
-          <div class="team-card">
-            <div class="team-avatar" style="background:var(--color-accent);">M</div>
-            <h5>Marcus Chen</h5>
-            <p class="role">Head of Curation</p>
-            <p class="text-muted small">Former literary critic with a passion for discovering debut authors and hidden gems.</p>
-          </div>
-        </div>
-        <div class="col-sm-6 col-md-4 col-lg-3 fade-in-up">
-          <div class="team-card">
-            <div class="team-avatar" style="background:#5c9e6b;">P</div>
-            <h5>Priya Sharma</h5>
-            <p class="role">Customer Experience</p>
-            <p class="text-muted small">Dedicated to making sure every reader has a delightful experience from browse to bookshelf.</p>
-          </div>
-        </div>
-        <div class="col-sm-6 col-md-4 col-lg-3 fade-in-up">
-          <div class="team-card">
-            <div class="team-avatar" style="background:#7b5ea7;">D</div>
-            <h5>David Okafor</h5>
-            <p class="role">Logistics Manager</p>
-            <p class="text-muted small">Ensures your books travel safely and swiftly from our warehouse to your door.</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ======================================================
-       OUR VALUES
-  ====================================================== -->
-  <section class="section section-alt">
-    <div class="container">
-      <div class="text-center mb-2">
-        <h2 class="section-title">Our Values</h2>
-      </div>
-      <div class="section-divider mx-auto"></div>
-
-      <div class="row g-4">
-        <div class="col-md-4 fade-in-up">
-          <div class="feature-card">
-            <div class="feature-icon">📚</div>
-            <h5>Inclusivity</h5>
-            <p class="text-muted mb-0">We champion diverse voices and ensure our catalog reflects the breadth of human experience.</p>
-          </div>
-        </div>
-        <div class="col-md-4 fade-in-up">
-          <div class="feature-card">
-            <div class="feature-icon">🌱</div>
-            <h5>Sustainability</h5>
-            <p class="text-muted mb-0">Our packaging is 100% recycled and we offset all shipping carbon through certified programmes.</p>
-          </div>
-        </div>
-        <div class="col-md-4 fade-in-up">
-          <div class="feature-card">
-            <div class="feature-icon">🤝</div>
-            <h5>Community</h5>
-            <p class="text-muted mb-0">We donate 1% of every sale to local literacy programmes and school library initiatives.</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ======================================================
-       CONTACT
-  ====================================================== -->
-  <section class="section" id="contact">
-    <div class="container">
-      <div class="text-center mb-2">
-        <h2 class="section-title">Get in Touch</h2>
-      </div>
-      <div class="section-divider mx-auto"></div>
-
-      <div class="row g-5">
-        <!-- Contact info -->
-        <div class="col-lg-5 fade-in-up">
-          <div class="contact-info-item">
-            <div class="contact-icon"><i class="bi bi-geo-alt-fill"></i></div>
+      <section class="section">
+        <div class="container">
+          <div class="split-head reveal">
             <div>
-              <strong>Address</strong><br />
-              <span class="text-muted">42 Reading Lane, Booktown, BK1 2PT</span>
+              <h2 class="section-title">Meet Our Booksellers</h2>
+              <p class="section-text">The team behind your next recommendation.</p>
             </div>
           </div>
-          <div class="contact-info-item">
-            <div class="contact-icon"><i class="bi bi-envelope-fill"></i></div>
-            <div>
-              <strong>Email</strong><br />
-              <a href="mailto:hello@pageturner.com" class="text-muted">hello@pageturner.com</a>
-            </div>
-          </div>
-          <div class="contact-info-item">
-            <div class="contact-icon"><i class="bi bi-telephone-fill"></i></div>
-            <div>
-              <strong>Phone</strong><br />
-              <span class="text-muted">(555) 012-3456</span>
-            </div>
-          </div>
-          <div class="contact-info-item">
-            <div class="contact-icon"><i class="bi bi-clock-fill"></i></div>
-            <div>
-              <strong>Opening Hours</strong><br />
-              <span class="text-muted">Mon – Fri: 9am – 6pm<br />Sat – Sun: 10am – 4pm</span>
-            </div>
-          </div>
-        </div>
 
-        <!-- Contact form -->
-        <div class="col-lg-7 fade-in-up">
-          <div id="contact-success" class="alert alert-success" style="display:none;" role="alert">
-            <i class="bi bi-check-circle-fill me-2"></i>
-            Thanks for reaching out! We'll get back to you within 24 hours.
+          <div class="grid grid-4">
+            <article class="team-card panel reveal">
+              <div class="portrait"><img src="https://picsum.photos/seed/person1/400/400" alt="Eleanor Vance portrait" referrerpolicy="no-referrer"></div>
+              <h3>Eleanor Vance</h3>
+              <p>Owner and Fiction Buyer</p>
+            </article>
+            <article class="team-card panel reveal">
+              <div class="portrait"><img src="https://picsum.photos/seed/person2/400/400" alt="Arthur Dent portrait" referrerpolicy="no-referrer"></div>
+              <h3>Arthur Dent</h3>
+              <p>Sci-Fi and Fantasy Specialist</p>
+            </article>
+            <article class="team-card panel reveal">
+              <div class="portrait"><img src="https://picsum.photos/seed/person3/400/400" alt="Matilda Wormwood portrait" referrerpolicy="no-referrer"></div>
+              <h3>Matilda Wormwood</h3>
+              <p>Children's Book Expert</p>
+            </article>
+            <article class="team-card panel reveal">
+              <div class="portrait"><img src="https://picsum.photos/seed/person4/400/400" alt="Holden Caulfield portrait" referrerpolicy="no-referrer"></div>
+              <h3>Holden Caulfield</h3>
+              <p>Cafe Manager</p>
+            </article>
           </div>
-          <form id="contact-form" novalidate>
-            <div class="row g-3">
-              <div class="col-sm-6">
-                <label for="contact-name" class="form-label fw-semibold">Your Name <span class="text-danger">*</span></label>
-                <input type="text" class="form-control" id="contact-name" placeholder="Jane Doe" required />
-              </div>
-              <div class="col-sm-6">
-                <label for="contact-email" class="form-label fw-semibold">Email Address <span class="text-danger">*</span></label>
-                <input type="email" class="form-control" id="contact-email" placeholder="jane@example.com" required />
-              </div>
-              <div class="col-12">
-                <label for="contact-subject" class="form-label fw-semibold">Subject</label>
-                <input type="text" class="form-control" id="contact-subject" placeholder="Order enquiry, book recommendation…" />
-              </div>
-              <div class="col-12">
-                <label for="contact-message" class="form-label fw-semibold">Message <span class="text-danger">*</span></label>
-                <textarea class="form-control" id="contact-message" rows="5" placeholder="Tell us how we can help…" required></textarea>
-              </div>
-              <div class="col-12">
-                <button type="submit" class="btn btn-accent px-4 py-2">
-                  <i class="bi bi-send me-1"></i> Send Message
-                </button>
-              </div>
-            </div>
-          </form>
         </div>
-      </div>
-    </div>
-  </section>
+      </section>
 
-  <!-- ======================================================
-       FOOTER
-  ====================================================== -->
-  <footer class="footer">
-    <div class="container">
-      <div class="row g-4">
-        <div class="col-lg-4">
-          <div class="footer-brand mb-2">
-            <i class="bi bi-book-half me-2"></i>Page<span>Turner</span>
-          </div>
-          <p class="small">Your neighbourhood bookstore, now online. Connecting readers with the stories that move them.</p>
-          <div class="social-links mt-3">
-            <a href="#" aria-label="Facebook"><i class="bi bi-facebook"></i></a>
-            <a href="#" aria-label="Twitter/X"><i class="bi bi-twitter-x"></i></a>
-            <a href="#" aria-label="Instagram"><i class="bi bi-instagram"></i></a>
-            <a href="#" aria-label="Pinterest"><i class="bi bi-pinterest"></i></a>
-          </div>
+      <section class="section">
+        <div class="container contact-grid">
+          <article class="panel reveal">
+            <h2 class="section-title" style="font-size:2rem;">Visit Us</h2>
+            <p class="section-text">123 Storybook Lane, Literary District, Cityville ST 12345</p>
+            <p class="section-text" style="margin-top:0.4rem;">Phone: (555) 123-4567</p>
+            <p class="section-text" style="margin-top:0.4rem;">Email: hello@theinkwell.com</p>
+
+            <h3 style="margin:1.4rem 0 0.8rem;color:var(--color-primary);">Hours</h3>
+            <ul>
+              <li><span>Monday to Friday</span><strong>8:00 AM - 9:00 PM</strong></li>
+              <li><span>Saturday</span><strong>9:00 AM - 10:00 PM</strong></li>
+              <li><span>Sunday</span><strong>10:00 AM - 6:00 PM</strong></li>
+            </ul>
+          </article>
+
+          <article class="panel reveal" style="overflow:hidden; padding:0; min-height: 280px;">
+            <img src="https://picsum.photos/seed/map/900/900" alt="Map to The Inkwell" style="width:100%; height:100%; object-fit:cover; opacity:0.75;" referrerpolicy="no-referrer">
+          </article>
         </div>
-        <div class="col-6 col-lg-2 offset-lg-1">
-          <h5>Navigate</h5>
-          <ul>
-            <li><a href="index.html">Home</a></li>
-            <li><a href="books.html">Books</a></li>
-            <li><a href="about.html">About Us</a></li>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container footer-grid">
+        <section>
+          <h4>The Inkwell</h4>
+          <p>Independent bookstore, reading community, and cafe. Built for people who collect stories.</p>
+        </section>
+        <section>
+          <h4>Explore</h4>
+          <ul class="footer-links">
+            <li><a href="books.html">Catalog</a></li>
+            <li><a href="books.html">Book Clubs</a></li>
+            <li><a href="services.html">Events</a></li>
           </ul>
-        </div>
-        <div class="col-6 col-lg-2">
-          <h5>Genres</h5>
-          <ul>
-            <li><a href="books.html">Fiction</a></li>
-            <li><a href="books.html">Non-Fiction</a></li>
-            <li><a href="books.html">Sci-Fi</a></li>
-            <li><a href="books.html">Classic</a></li>
+        </section>
+        <section>
+          <h4>Information</h4>
+          <ul class="footer-links">
+            <li><a href="about.html">About</a></li>
+            <li><a href="services.html">Services</a></li>
+            <li><a href="about.html">Contact</a></li>
+            <li><a href="about.html">Policies</a></li>
           </ul>
-        </div>
-        <div class="col-lg-3">
-          <h5>Contact</h5>
-          <ul>
-            <li><i class="bi bi-geo-alt me-1 text-warning"></i> 42 Reading Lane, Booktown</li>
-            <li><i class="bi bi-envelope me-1 text-warning"></i> hello@pageturner.com</li>
-            <li><i class="bi bi-telephone me-1 text-warning"></i> (555) 012-3456</li>
-          </ul>
-        </div>
+        </section>
       </div>
-
-      <hr class="footer-divider" />
-      <p class="text-center small mb-0">
-        &copy; <span id="footer-year"></span> PageTurner Books. All rights reserved.
-      </p>
-    </div>
-  </footer>
-
-  <!-- Back-to-top -->
-  <button id="back-to-top" aria-label="Back to top">
-    <i class="bi bi-chevron-up"></i>
-  </button>
-
-  <!-- Cart Toast -->
-  <div id="cart-toast" class="toast align-items-center text-white bg-success border-0" role="alert" aria-live="assertive" aria-atomic="true">
-    <div class="d-flex">
-      <div class="toast-body">
-        <i class="bi bi-check-circle me-2"></i>
-        <span id="cart-toast-msg"></span>
-      </div>
-      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
-    </div>
+      <div class="container copy">&copy; <span class="js-year"></span> The Inkwell Bookstore. All rights reserved.</div>
+    </footer>
   </div>
 
-  <!-- Bootstrap 5 JS -->
-  <script
-    src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
-    integrity="sha384-YvpcrYf0tY3lHB60NNkmXc4s9bIOgUxi8T/jzmQJNkKOE4ueKs00OiGkQMXvGNe"
-    crossorigin="anonymous"
-  ></script>
-  <!-- Custom JS -->
+  <div class="toast" id="cart-toast" role="status" aria-live="polite"></div>
   <script src="js/main.js"></script>
-  <script>
-    document.getElementById('footer-year').textContent = new Date().getFullYear();
-  </script>
 </body>
 </html>
