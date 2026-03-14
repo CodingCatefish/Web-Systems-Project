@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Read and share book reviews at Pagemark." />
+  <title>Pagemark - Reviews</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <div class="site-shell">
+    <header class="site-header">
+      <div class="container header-row">
+        <a class="brand" href="index.html"><span class="brand-mark">B</span> Pagemark</a>
+        <nav class="nav-links" aria-label="Main navigation">
+          <a class="nav-link" href="index.html">Home</a>
+          <a class="nav-link" href="books.html">Catalog</a>
+          <a class="nav-link" href="services.html">Services</a>
+          <a class="nav-link" href="reviews.html">Reviews</a>
+          <a class="nav-link" href="about.html">About</a>
+          <a class="cart-link" href="books.html">Bag <span id="cart-count">0</span></a>
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      <section class="page-hero">
+        <div class="container reveal">
+          <h1 class="section-title">Reader Reviews</h1>
+          <p class="section-text">See what our community is reading and share your own thoughts.</p>
+        </div>
+      </section>
+
+      <section class="section" style="padding-top: 1rem;">
+        <div class="container">
+          <div class="split-head reveal">
+            <div>
+              <h2 class="section-title">Write a Review</h2>
+              <p class="section-text">Tell us about a book you have read recently.</p>
+            </div>
+          </div>
+
+          <form class="review-form panel reveal" id="review-form">
+            <div class="form-row">
+              <div class="form-group">
+                <label for="review-name">Your Name</label>
+                <input type="text" id="review-name" placeholder="e.g. Jane D." required />
+              </div>
+              <div class="form-group">
+                <label for="review-book">Book Title</label>
+                <input type="text" id="review-book" placeholder="e.g. The Midnight Library" required />
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Your Rating</label>
+              <div class="star-input" id="star-input">
+                <button type="button" class="star-btn" data-value="1" aria-label="1 star">&#9733;</button>
+                <button type="button" class="star-btn" data-value="2" aria-label="2 stars">&#9733;</button>
+                <button type="button" class="star-btn" data-value="3" aria-label="3 stars">&#9733;</button>
+                <button type="button" class="star-btn" data-value="4" aria-label="4 stars">&#9733;</button>
+                <button type="button" class="star-btn" data-value="5" aria-label="5 stars">&#9733;</button>
+              </div>
+              <input type="hidden" id="review-rating" value="0" />
+            </div>
+            <div class="form-group">
+              <label for="review-text">Your Review</label>
+              <textarea id="review-text" rows="4" placeholder="What did you think of the book?" required></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary">Submit Review</button>
+          </form>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="container">
+          <div class="split-head reveal">
+            <div>
+              <h2 class="section-title">Community Reviews</h2>
+              <p class="section-text">Recent reviews from fellow Pagemark readers.</p>
+            </div>
+          </div>
+
+          <div id="reviews-list" class="reviews-list">
+            <!-- Reviews rendered by JavaScript -->
+          </div>
+          <p id="no-reviews" class="no-reviews" style="display:none;">No reviews yet. Be the first to share your thoughts!</p>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container footer-grid">
+        <section>
+          <h4>Pagemark</h4>
+          <p>Independent bookstore, reading community, and cafe. Built for people who collect stories.</p>
+        </section>
+        <section>
+          <h4>Explore</h4>
+          <ul class="footer-links">
+            <li><a href="books.html">Catalog</a></li>
+            <li><a href="reviews.html">Reviews</a></li>
+            <li><a href="services.html">Events</a></li>
+          </ul>
+        </section>
+        <section>
+          <h4>Information</h4>
+          <ul class="footer-links">
+            <li><a href="about.html">About</a></li>
+            <li><a href="services.html">Services</a></li>
+            <li><a href="about.html">Contact</a></li>
+            <li><a href="about.html">Policies</a></li>
+          </ul>
+        </section>
+      </div>
+      <div class="container copy">&copy; <span class="js-year"></span> Pagemark. All rights reserved.</div>
+    </footer>
+  </div>
+
+  <div class="toast" id="cart-toast" role="status" aria-live="polite"></div>
+  <script src="js/main.js"></script>
+</body>
+</html>
