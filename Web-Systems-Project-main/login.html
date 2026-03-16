@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login | Pagemark</title>
+    <link rel="stylesheet" href="css/styles.css" />
+    <style>
+        body {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: radial-gradient(circle at 15% 10%, #fff7e6 0, transparent 40%),
+                        radial-gradient(circle at 85% 5%, #f7f9fc 0, transparent 36%),
+                        var(--color-surface);
+        }
+
+        .auth-card {
+            background: var(--color-paper);
+            width: 100%;
+            max-width: 420px;
+            padding: 2.4rem 2.2rem 2rem;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-md);
+            border: 1px solid rgba(26, 32, 44, 0.06);
+        }
+
+        .auth-logo {
+            text-align: center;
+            margin-bottom: 1.4rem;
+        }
+
+        .auth-logo h1 {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.9rem;
+            color: var(--color-primary);
+            letter-spacing: 0.02em;
+            margin: 0;
+        }
+
+        .auth-logo span {
+            color: var(--color-accent);
+        }
+
+        .auth-subtitle {
+            text-align: center;
+            color: var(--color-muted);
+            font-size: 0.9rem;
+            margin-bottom: 1.6rem;
+        }
+
+        .auth-form {
+            display: flex;
+            flex-direction: column;
+            gap: 0.9rem;
+        }
+
+        .field {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .field label {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--color-primary);
+        }
+
+        .field input[type="email"],
+        .field input[type="password"] {
+            padding: 0.7rem 0.8rem;
+            border-radius: var(--radius-md);
+            border: 1px solid rgba(26, 32, 44, 0.18);
+            font-size: 0.9rem;
+            font-family: inherit;
+        }
+
+        .field input[type="email"]:focus,
+        .field input[type="password"]:focus {
+            outline: 2px solid rgba(245, 158, 11, 0.35);
+            border-color: var(--color-accent);
+        }
+
+        .actions {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: 0.25rem;
+            font-size: 0.8rem;
+            color: var(--color-muted);
+        }
+
+        .remember {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .remember input[type="checkbox"] {
+            accent-color: var(--color-primary);
+        }
+
+        .forgot a {
+            color: var(--color-primary);
+            text-decoration: none;
+        }
+
+        .forgot a:hover {
+            text-decoration: underline;
+        }
+
+        .auth-submit {
+            margin-top: 1.2rem;
+            width: 100%;
+            border-radius: var(--radius-md);
+            border: none;
+            background: var(--color-primary);
+            color: #fff;
+            font-size: 0.95rem;
+            font-weight: 700;
+            padding: 0.8rem 1rem;
+            cursor: pointer;
+            transition: transform var(--easing), background var(--easing);
+        }
+
+        .auth-submit:hover {
+            transform: translateY(-1px);
+            background: var(--color-primary-soft);
+        }
+
+        .auth-footer-text {
+            text-align: center;
+            margin-top: 1.1rem;
+            font-size: 0.85rem;
+            color: var(--color-muted);
+        }
+
+        .auth-footer-text a {
+            color: var(--color-primary);
+            font-weight: 600;
+        }
+
+        .auth-footer-text a:hover {
+            text-decoration: underline;
+        }
+
+        @media (max-width: 500px) {
+            .auth-card {
+                margin: 1.2rem;
+                padding: 2rem 1.6rem 1.6rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="auth-card">
+        <div class="auth-logo">
+            <h1>Pagemark <span>Login</span></h1>
+        </div>
+        <p class="auth-subtitle">Sign in to access your account and manage your books.</p>
+
+        <form class="auth-form" action="/login" method="POST">
+            <div class="field">
+                <label for="email">Email</label>
+                <input
+                    type="email"
+                    id="email"
+                    name="email"
+                    placeholder="you@example.com"
+                    required
+                >
+            </div>
+
+            <div class="field">
+                <label for="password">Password</label>
+                <input
+                    type="password"
+                    id="password"
+                    name="password"
+                    placeholder="Enter your password"
+                    required
+                >
+            </div>
+
+            <div class="actions">
+                <label class="remember">
+                    <input type="checkbox" name="remember">
+                    Remember me
+                </label>
+                <span class="forgot">
+                    <a href="#">Forgot password?</a>
+                </span>
+            </div>
+
+            <button type="submit">Login</button>
+        </form>
+
+        <p class="footer">
+            Don't have an account?
+            <a href="signup.html">Sign up</a>
+        </p>
+    </div>
+</body>
+</html>
