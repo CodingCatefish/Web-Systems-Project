@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Pagemark catalog - browse books across genres." />
+  <title>Pagemark - Catalog</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <div class="site-shell">
+    <header class="site-header">
+      <div class="container header-row">
+        <a class="brand" href="index.html"><span class="brand-mark">B</span> Pagemark</a>
+        <nav class="nav-links" aria-label="Main navigation">
+          <a class="nav-link" href="index.html">Home</a>
+          <a class="nav-link" href="books.html">Catalog</a>
+          <a class="nav-link" href="services.html">Services</a>
+          <a class="nav-link" href="reviews.html">Reviews</a>
+          <a class="nav-link" href="about.html">About</a>
+          <a class="cart-link" href="books.html">Bag <span id="cart-count">0</span></a>
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      <section class="page-hero">
+        <div class="container reveal">
+          <h1 class="section-title">Our Catalog</h1>
+          <p class="section-text">Explore hand-picked titles from every shelf in Pagemark.</p>
+        </div>
+      </section>
+
+      <section class="section" style="padding-top: 1rem;">
+        <div class="container">
+          <div class="catalog-tools reveal panel" style="padding:1rem;">
+            <div class="genre-row" aria-label="Genre filters">
+              <button class="genre-chip active" data-genre="all">All</button>
+              <button class="genre-chip" data-genre="fiction">Fiction</button>
+              <button class="genre-chip" data-genre="non-fiction">Non-Fiction</button>
+              <button class="genre-chip" data-genre="sci-fi">Sci-Fi</button>
+              <button class="genre-chip" data-genre="classics">Classics</button>
+              <button class="genre-chip" data-genre="self-help">Self-Help</button>
+              <button class="genre-chip" data-genre="fantasy">Fantasy</button>
+            </div>
+            <label class="search-wrap">
+              <input id="book-search" type="text" placeholder="Search books or authors" aria-label="Search books" />
+            </label>
+          </div>
+
+          <div class="grid grid-4" id="book-grid">
+            <article class="book-card reveal book-item" data-title="The Midnight Library" data-author="Matt Haig" data-genre="fiction">
+              <div class="book-cover"><img src="https://picsum.photos/seed/book1/400/600" alt="The Midnight Library cover" referrerpolicy="no-referrer"></div>
+              <div class="book-meta"><span class="book-category">Fiction</span><h3 class="book-title">The Midnight Library</h3><p class="book-author">Matt Haig</p></div>
+              <div class="book-row"><span class="book-price">$24.99</span><button class="btn-mini js-add-cart">Add</button></div>
+            </article>
+            <article class="book-card reveal book-item" data-title="Dune" data-author="Frank Herbert" data-genre="sci-fi">
+              <div class="book-cover"><img src="https://picsum.photos/seed/book2/400/600" alt="Dune cover" referrerpolicy="no-referrer"></div>
+              <div class="book-meta"><span class="book-category">Sci-Fi</span><h3 class="book-title">Dune</h3><p class="book-author">Frank Herbert</p></div>
+              <div class="book-row"><span class="book-price">$18.99</span><button class="btn-mini js-add-cart">Add</button></div>
+            </article>
+            <article class="book-card reveal book-item" data-title="Project Hail Mary" data-author="Andy Weir" data-genre="sci-fi">
+              <div class="book-cover"><img src="https://picsum.photos/seed/book3/400/600" alt="Project Hail Mary cover" referrerpolicy="no-referrer"></div>
+              <div class="book-meta"><span class="book-category">Sci-Fi</span><h3 class="book-title">Project Hail Mary</h3><p class="book-author">Andy Weir</p></div>
+              <div class="book-row"><span class="book-price">$26.00</span><button class="btn-mini js-add-cart">Add</button></div>
+            </article>
+            <article class="book-card reveal book-item" data-title="Tomorrow and Tomorrow and Tomorrow" data-author="Gabrielle Zevin" data-genre="fiction">
+              <div class="book-cover"><img src="https://picsum.photos/seed/book4/400/600" alt="Tomorrow and Tomorrow and Tomorrow cover" referrerpolicy="no-referrer"></div>
+              <div class="book-meta"><span class="book-category">Fiction</span><h3 class="book-title">Tomorrow and Tomorrow and Tomorrow</h3><p class="book-author">Gabrielle Zevin</p></div>
+              <div class="book-row"><span class="book-price">$28.00</span><button class="btn-mini js-add-cart">Add</button></div>
+            </article>
+            <article class="book-card reveal book-item" data-title="Sapiens" data-author="Yuval Noah Harari" data-genre="non-fiction">
+              <div class="book-cover"><img src="https://picsum.photos/seed/book5/400/600" alt="Sapiens cover" referrerpolicy="no-referrer"></div>
+              <div class="book-meta"><span class="book-category">Non-Fiction</span><h3 class="book-title">Sapiens</h3><p class="book-author">Yuval Noah Harari</p></div>
+              <div class="book-row"><span class="book-price">$22.50</span><button class="btn-mini js-add-cart">Add</button></div>
+            </article>
+            <article class="book-card reveal book-item" data-title="Atomic Habits" data-author="James Clear" data-genre="self-help">
+              <div class="book-cover"><img src="https://picsum.photos/seed/book6/400/600" alt="Atomic Habits cover" referrerpolicy="no-referrer"></div>
+              <div class="book-meta"><span class="book-category">Self-Help</span><h3 class="book-title">Atomic Habits</h3><p class="book-author">James Clear</p></div>
+              <div class="book-row"><span class="book-price">$20.00</span><button class="btn-mini js-add-cart">Add</button></div>
+            </article>
+            <article class="book-card reveal book-item" data-title="The Hobbit" data-author="J.R.R. Tolkien" data-genre="fantasy">
+              <div class="book-cover"><img src="https://picsum.photos/seed/book7/400/600" alt="The Hobbit cover" referrerpolicy="no-referrer"></div>
+              <div class="book-meta"><span class="book-category">Fantasy</span><h3 class="book-title">The Hobbit</h3><p class="book-author">J.R.R. Tolkien</p></div>
+              <div class="book-row"><span class="book-price">$15.99</span><button class="btn-mini js-add-cart">Add</button></div>
+            </article>
+            <article class="book-card reveal book-item" data-title="1984" data-author="George Orwell" data-genre="classics">
+              <div class="book-cover"><img src="https://picsum.photos/seed/book8/400/600" alt="1984 cover" referrerpolicy="no-referrer"></div>
+              <div class="book-meta"><span class="book-category">Classics</span><h3 class="book-title">1984</h3><p class="book-author">George Orwell</p></div>
+              <div class="book-row"><span class="book-price">$14.99</span><button class="btn-mini js-add-cart">Add</button></div>
+            </article>
+            <article class="book-card reveal book-item" data-title="To Kill a Mockingbird" data-author="Harper Lee" data-genre="classics">
+              <div class="book-cover"><img src="https://picsum.photos/seed/book9/400/600" alt="To Kill a Mockingbird cover" referrerpolicy="no-referrer"></div>
+              <div class="book-meta"><span class="book-category">Classics</span><h3 class="book-title">To Kill a Mockingbird</h3><p class="book-author">Harper Lee</p></div>
+              <div class="book-row"><span class="book-price">$16.99</span><button class="btn-mini js-add-cart">Add</button></div>
+            </article>
+            <article class="book-card reveal book-item" data-title="The Great Gatsby" data-author="F. Scott Fitzgerald" data-genre="classics">
+              <div class="book-cover"><img src="https://picsum.photos/seed/book10/400/600" alt="The Great Gatsby cover" referrerpolicy="no-referrer"></div>
+              <div class="book-meta"><span class="book-category">Classics</span><h3 class="book-title">The Great Gatsby</h3><p class="book-author">F. Scott Fitzgerald</p></div>
+              <div class="book-row"><span class="book-price">$12.99</span><button class="btn-mini js-add-cart">Add</button></div>
+            </article>
+            <article class="book-card reveal book-item" data-title="Thinking Fast and Slow" data-author="Daniel Kahneman" data-genre="non-fiction">
+              <div class="book-cover"><img src="https://picsum.photos/seed/book11/400/600" alt="Thinking Fast and Slow cover" referrerpolicy="no-referrer"></div>
+              <div class="book-meta"><span class="book-category">Non-Fiction</span><h3 class="book-title">Thinking Fast and Slow</h3><p class="book-author">Daniel Kahneman</p></div>
+              <div class="book-row"><span class="book-price">$21.00</span><button class="btn-mini js-add-cart">Add</button></div>
+            </article>
+            <article class="book-card reveal book-item" data-title="Educated" data-author="Tara Westover" data-genre="non-fiction">
+              <div class="book-cover"><img src="https://picsum.photos/seed/book12/400/600" alt="Educated cover" referrerpolicy="no-referrer"></div>
+              <div class="book-meta"><span class="book-category">Biography</span><h3 class="book-title">Educated</h3><p class="book-author">Tara Westover</p></div>
+              <div class="book-row"><span class="book-price">$19.00</span><button class="btn-mini js-add-cart">Add</button></div>
+            </article>
+          </div>
+          <p id="no-results">No books match your current filters.</p>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container footer-grid">
+        <section>
+          <h4>Pagemark</h4>
+          <p>Curated books, a welcoming space, and a strong reading community all year round.</p>
+        </section>
+        <section>
+          <h4>Explore</h4>
+          <ul class="footer-links">
+            <li><a href="books.html">All Books</a></li>
+            <li><a href="books.html">Top Rated</a></li>
+            <li><a href="services.html">Author Events</a></li>
+          </ul>
+        </section>
+        <section>
+          <h4>Information</h4>
+          <ul class="footer-links">
+            <li><a href="about.html">About Us</a></li>
+            <li><a href="services.html">Services</a></li>
+            <li><a href="about.html">Contact</a></li>
+            <li><a href="about.html">Hours</a></li>
+          </ul>
+        </section>
+      </div>
+      <div class="container copy">&copy; <span class="js-year"></span> Pagemark Bookstore. All rights reserved.</div>
+    </footer>
+  </div>
+
+  <div class="toast" id="cart-toast" role="status" aria-live="polite"></div>
+  <script src="js/main.js"></script>
+</body>
+</html>
