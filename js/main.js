@@ -64,46 +64,93 @@
     var chips = document.querySelectorAll('.genre-chip');
     var cards = document.querySelectorAll('.book-item');
     var noResults = document.getElementById('no-results');
+    var clearFilters = document.getElementById('clear-filters');
+    var resultsCount = document.getElementById('results-count');
 
     if (!search || !cards.length) return;
 
+    var bookRecords = Array.from(cards).map(function (card) {
+      return {
+        card: card,
+        title: normalizeFilterText(card.dataset.title),
+        author: normalizeFilterText(card.dataset.author),
+        genre: normalizeFilterText(card.dataset.genre)
+      };
+    });
+
     var activeGenre = 'all';
 
-    function applyFilters() {
-      var query = search.value.trim().toLowerCase();
+    function normalizeFilterText(value) {
+      return String(value || '').trim().toLowerCase();
+    }
+
+    function doesBookMatch(book, query, genre) {
+      var matchesSearch = !query || book.title.indexOf(query) >= 0 || book.author.indexOf(query) >= 0;
+      var matchesGenre = genre === 'all' || book.genre === genre;
+      return matchesSearch && matchesGenre;
+    }
+
+    function filterBooks(records, query, genre) {
+      return records.map(function (book) {
+        return doesBookMatch(book, query, genre);
+      });
+    }
+
+    function setActiveGenreChip(nextGenre) {
+      chips.forEach(function (chip) {
+        var isActive = (chip.dataset.genre || 'all') === nextGenre;
+        chip.classList.toggle('active', isActive);
+      });
+      activeGenre = nextGenre;
+    }
+
+    function updateResultsCount(visible) {
+      if (!resultsCount) return;
+      var label = visible === 1 ? 'book' : 'books';
+      resultsCount.textContent = 'Showing ' + visible + ' ' + label;
+    }
+
+    function renderFilteredBooks() {
+      var query = normalizeFilterText(search.value);
+      var matches = filterBooks(bookRecords, query, activeGenre);
       var visible = 0;
 
-      cards.forEach(function (card) {
-        var title = (card.dataset.title || '').toLowerCase();
-        var author = (card.dataset.author || '').toLowerCase();
-        var genre = (card.dataset.genre || '').toLowerCase();
-
-        var matchesSearch = !query || title.indexOf(query) >= 0 || author.indexOf(query) >= 0;
-        var matchesGenre = activeGenre === 'all' || genre === activeGenre;
-
-        if (matchesSearch && matchesGenre) {
-          card.style.display = '';
+      matches.forEach(function (isVisible, index) {
+        if (isVisible) {
+          bookRecords[index].card.style.display = '';
           visible += 1;
         } else {
-          card.style.display = 'none';
+          bookRecords[index].card.style.display = 'none';
         }
       });
 
       if (noResults) {
         noResults.style.display = visible === 0 ? 'block' : 'none';
       }
+
+      updateResultsCount(visible);
     }
 
-    search.addEventListener('input', applyFilters);
+    search.addEventListener('input', renderFilteredBooks);
 
     chips.forEach(function (chip) {
       chip.addEventListener('click', function () {
-        chips.forEach(function (el) { el.classList.remove('active'); });
-        chip.classList.add('active');
-        activeGenre = chip.dataset.genre || 'all';
-        applyFilters();
+        setActiveGenreChip(chip.dataset.genre || 'all');
+        renderFilteredBooks();
       });
     });
+
+    if (clearFilters) {
+      clearFilters.addEventListener('click', function () {
+        search.value = '';
+        setActiveGenreChip('all');
+        renderFilteredBooks();
+        search.focus();
+      });
+    }
+
+    setActiveGenreChip('all');
+    renderFilteredBooks();
   }
 
   /* ── Reviews ── */
