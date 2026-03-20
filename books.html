@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="css/styles.css" />
 </head>
 <body>
+  <a href="#main-content" class="skip-link" style="position: absolute; left: -9999px; z-index: 999; padding: 1rem; background: var(--color-primary); color: white; text-decoration: none;" onfocus="this.style.left='0'" onblur="this.style.left='-9999px'">Skip to main content</a>
   <div class="site-shell">
     <header class="site-header">
       <div class="container header-row">
@@ -18,12 +19,13 @@
           <a class="nav-link" href="services.html">Services</a>
           <a class="nav-link" href="reviews.html">Reviews</a>
           <a class="nav-link" href="about.html">About</a>
+          <a class="nav-link" href="admin" id="admin-nav-link" style="display: none; font-weight: 800; color: var(--color-accent);">Admin</a>
           <a class="cart-link" href="books.html">Bag <span id="cart-count">0</span></a>
         </nav>
       </div>
     </header>
 
-    <main>
+    <main id="main-content">
       <section class="page-hero">
         <div class="container reveal">
           <h1 class="section-title">Our Catalog</h1>
@@ -35,17 +37,17 @@
         <div class="container">
           <div class="catalog-tools reveal panel" style="padding:1rem;">
             <div class="genre-row" aria-label="Genre filters">
-              <button class="genre-chip active" data-genre="all">All</button>
-              <button class="genre-chip" data-genre="fiction">Fiction</button>
-              <button class="genre-chip" data-genre="non-fiction">Non-Fiction</button>
-              <button class="genre-chip" data-genre="sci-fi">Sci-Fi</button>
-              <button class="genre-chip" data-genre="classics">Classics</button>
-              <button class="genre-chip" data-genre="self-help">Self-Help</button>
-              <button class="genre-chip" data-genre="fantasy">Fantasy</button>
+              <button class="genre-chip active" data-genre="all" aria-pressed="true">All</button>
+              <button class="genre-chip" data-genre="fiction" aria-pressed="false">Fiction</button>
+              <button class="genre-chip" data-genre="non-fiction" aria-pressed="false">Non-Fiction</button>
+              <button class="genre-chip" data-genre="sci-fi" aria-pressed="false">Sci-Fi</button>
+              <button class="genre-chip" data-genre="classics" aria-pressed="false">Classics</button>
+              <button class="genre-chip" data-genre="self-help" aria-pressed="false">Self-Help</button>
+              <button class="genre-chip" data-genre="fantasy" aria-pressed="false">Fantasy</button>
             </div>
-            <label class="search-wrap">
+            <div class="search-wrap">
               <input id="book-search" type="text" placeholder="Search books or authors" aria-label="Search books" />
-            </label>
+            </div>
           </div>
 
           <div class="grid grid-4" id="book-grid">
@@ -110,7 +112,7 @@
               <div class="book-row"><span class="book-price">$19.00</span><button class="btn-mini js-add-cart">Add</button></div>
             </article>
           </div>
-          <p id="no-results">No books match your current filters.</p>
+          <p id="no-results" aria-live="polite">No books match your current filters.</p>
         </div>
       </section>
     </main>

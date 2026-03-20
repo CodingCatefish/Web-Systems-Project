@@ -2,6 +2,22 @@
   'use strict';
 
   var CART_KEY = 'inkwell_cart_count';
+  var adminLink = null;
+
+  async function loadSessionAndShowAdmin() {
+    try {
+      var response = await fetch('/api/session');
+      var session = await response.json();
+
+      if (session && session.role === 'admin') {
+        if (adminLink) {
+          adminLink.style.display = 'inline';
+        }
+      }
+    } catch (error) {
+      console.log('Session check failed silently');
+    }
+  }
 
   function setActiveNavLink() {
     var current = window.location.pathname.split('/').pop() || 'index.html';
@@ -98,8 +114,12 @@
 
     chips.forEach(function (chip) {
       chip.addEventListener('click', function () {
-        chips.forEach(function (el) { el.classList.remove('active'); });
+        chips.forEach(function (el) { 
+          el.classList.remove('active'); 
+          el.setAttribute('aria-pressed', 'false');
+        });
         chip.classList.add('active');
+        chip.setAttribute('aria-pressed', 'true');
         activeGenre = chip.dataset.genre || 'all';
         applyFilters();
       });
@@ -212,8 +232,10 @@
           var sv = parseInt(s.getAttribute('data-value'), 10);
           if (sv <= val) {
             s.classList.add('active');
+            s.setAttribute('aria-pressed', 'true');
           } else {
             s.classList.remove('active');
+            s.setAttribute('aria-pressed', 'false');
           }
         });
       });
@@ -267,7 +289,10 @@
 
       form.reset();
       ratingField.value = '0';
-      stars.forEach(function (s) { s.classList.remove('active'); });
+      stars.forEach(function (s) { 
+        s.classList.remove('active'); 
+        s.setAttribute('aria-pressed', 'false'); 
+      });
 
       showToast('Review submitted — thank you!');
       renderReviews();
@@ -295,6 +320,8 @@
   }
 
   document.addEventListener('DOMContentLoaded', function () {
+    adminLink = document.getElementById('admin-nav-link');
+    loadSessionAndShowAdmin();
     setActiveNavLink();
     updateYear();
     updateCartCount();

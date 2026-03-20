@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="css/styles.css" />
 </head>
 <body>
+  <a href="#main-content" class="skip-link" style="position: absolute; left: -9999px; z-index: 999; padding: 1rem; background: var(--color-primary); color: white; text-decoration: none;" onfocus="this.style.left='0'" onblur="this.style.left='-9999px'">Skip to main content</a>
   <div class="site-shell">
     <header class="site-header">
       <div class="container header-row">
@@ -18,12 +19,13 @@
           <a class="nav-link" href="services.html">Services</a>
           <a class="nav-link" href="reviews.html">Reviews</a>
           <a class="nav-link" href="about.html">About</a>
+          <a class="nav-link" href="admin" id="admin-nav-link" style="display: none; font-weight: 800; color: var(--color-accent);">Admin</a>
           <a class="cart-link" href="books.html">Bag <span id="cart-count">0</span></a>
         </nav>
       </div>
     </header>
 
-    <main>
+    <main id="main-content">
       <section class="page-hero">
         <div class="container reveal">
           <h1 class="section-title">Our Services</h1>
@@ -37,32 +39,32 @@
         <div class="container">
           <div class="grid grid-3">
             <article class="feature-card reveal">
-              <div class="service-icon">📚</div>
+              <div class="service-icon" aria-hidden="true">📚</div>
               <h3>Personalized Recommendations</h3>
               <p>Share what you love and our booksellers will build a custom reading list just for you.</p>
             </article>
             <article class="feature-card reveal">
-              <div class="service-icon">☕</div>
+              <div class="service-icon" aria-hidden="true">☕</div>
               <h3>Pagemark Cafe</h3>
               <p>Enjoy specialty coffee, tea, and pastries while you read, study, or catch up with friends.</p>
             </article>
             <article class="feature-card reveal">
-              <div class="service-icon">👥</div>
+              <div class="service-icon" aria-hidden="true">👥</div>
               <h3>Book Clubs</h3>
               <p>Join monthly groups for fiction, sci-fi, classics, and more. New members are always welcome.</p>
             </article>
             <article class="feature-card reveal">
-              <div class="service-icon">🗓️</div>
+              <div class="service-icon" aria-hidden="true">🗓️</div>
               <h3>Author Events and Signings</h3>
               <p>Meet local and touring authors for readings, Q and A sessions, and signed copies.</p>
             </article>
             <article class="feature-card reveal">
-              <div class="service-icon">🎁</div>
+              <div class="service-icon" aria-hidden="true">🎁</div>
               <h3>Gift Wrapping and Bundles</h3>
               <p>Get complimentary gift wrapping and themed book bundles for holidays and special occasions.</p>
             </article>
             <article class="feature-card reveal">
-              <div class="service-icon">📦</div>
+              <div class="service-icon" aria-hidden="true">📦</div>
               <h3>Special Orders</h3>
               <p>Need a hard-to-find title? We can special order most in-print books within 3 to 5 days.</p>
             </article>

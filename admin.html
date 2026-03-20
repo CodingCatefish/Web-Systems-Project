@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Pagemark admin dashboard" />
+  <title>Pagemark Admin</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <style>
+    .admin-shell {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .admin-main {
+      flex: 1;
+      padding: 2.4rem 0 3rem;
+    }
+
+    .admin-head {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1.4rem;
+    }
+
+    .admin-title {
+      margin: 0;
+      font-family: 'Playfair Display', serif;
+      color: var(--color-primary);
+      font-size: clamp(1.6rem, 3.6vw, 2.3rem);
+    }
+
+    .admin-subtitle {
+      margin: 0.35rem 0 0;
+      color: var(--color-muted);
+      font-size: 0.95rem;
+    }
+
+    .admin-logout {
+      border: 1px solid rgba(26, 32, 44, 0.16);
+      background: #fff;
+      color: var(--color-primary);
+      border-radius: var(--radius-pill);
+      padding: 0.5rem 0.9rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .admin-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1rem;
+      margin-top: 1.2rem;
+    }
+
+    .admin-card {
+      background: var(--color-paper);
+      border: 1px solid rgba(26, 32, 44, 0.07);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-sm);
+      padding: 1.2rem;
+    }
+
+    .admin-card h2 {
+      margin: 0 0 0.6rem;
+      font-size: 1rem;
+      color: var(--color-primary);
+    }
+
+    .admin-stat {
+      margin: 0;
+      font-size: 1.8rem;
+      font-weight: 800;
+      color: var(--color-accent);
+    }
+
+    .admin-note {
+      margin-top: 0.7rem;
+      color: var(--color-muted);
+      line-height: 1.5;
+      font-size: 0.9rem;
+    }
+
+    .admin-panel {
+      margin-top: 1rem;
+      background: linear-gradient(135deg, #f7f2e8, #fcfaf6);
+      border: 1px solid rgba(26, 32, 44, 0.08);
+      border-radius: var(--radius-lg);
+      padding: 1.1rem 1.2rem;
+    }
+
+    .admin-panel p {
+      margin: 0;
+      color: var(--color-muted);
+      line-height: 1.6;
+    }
+
+    @media (max-width: 920px) {
+      .admin-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 620px) {
+      .admin-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="admin-shell">
+    <header class="site-header">
+      <div class="container header-row">
+        <a class="brand" href="index.html"><span class="brand-mark">B</span> Pagemark</a>
+        <nav class="nav-links" aria-label="Admin navigation">
+          <a class="nav-link" href="index.html">Public Site</a>
+          <form action="/logout" method="POST">
+            <button class="admin-logout" type="submit">Logout</button>
+          </form>
+        </nav>
+      </div>
+    </header>
+
+    <main class="admin-main">
+      <div class="container">
+        <section class="admin-head reveal">
+          <div>
+            <h1 class="admin-title">Admin Dashboard</h1>
+            <p class="admin-subtitle">Restricted area for bookstore administrators.</p>
+          </div>
+        </section>
+
+        <section class="admin-grid">
+          <article class="admin-card reveal">
+            <h2>Books</h2>
+            <p class="admin-stat">0</p>
+            <p class="admin-note">Create and manage your catalog records from this panel once the full backend CRUD is connected.</p>
+          </article>
+
+          <article class="admin-card reveal">
+            <h2>Reviews</h2>
+            <p class="admin-stat">0</p>
+            <p class="admin-note">Review moderation controls can be attached here after database-backed review routes are implemented.</p>
+          </article>
+
+          <article class="admin-card reveal">
+            <h2>Users</h2>
+            <p class="admin-stat">0</p>
+            <p class="admin-note">User and role management can be plugged in later without changing this route-level access guard.</p>
+          </article>
+        </section>
+
+        <section class="admin-panel reveal">
+          <p>
+            This admin page is currently gated by server-side admin credentials and a secure HttpOnly session cookie.
+            Replace the temporary admin credential check with SQL role validation when your full user-role schema is ready.
+          </p>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <script src="js/main.js"></script>
+</body>
+</html>
