@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="Pagemark catalog - browse books across genres." />
-  <title>Pagemark - Catalog</title>
+  <meta name="description" content="Pagemark View Books page - browse books across genres and search by title or author." />
+  <title>Pagemark - View Books</title>
   <link rel="stylesheet" href="css/styles.css" />
 </head>
 <body>
@@ -14,7 +14,7 @@
         <a class="brand" href="index.html"><span class="brand-mark">B</span> Pagemark</a>
         <nav class="nav-links" aria-label="Main navigation">
           <a class="nav-link" href="index.html">Home</a>
-          <a class="nav-link" href="books.html">Catalog</a>
+          <a class="nav-link" href="books.html">View Books</a>
           <a class="nav-link" href="services.html">Services</a>
           <a class="nav-link" href="reviews.html">Reviews</a>
           <a class="nav-link" href="about.html">About</a>
@@ -26,26 +26,33 @@
     <main>
       <section class="page-hero">
         <div class="container reveal">
-          <h1 class="section-title">Our Catalog</h1>
+          <h1 class="section-title">View Books</h1>
           <p class="section-text">Explore hand-picked titles from every shelf in Pagemark.</p>
         </div>
       </section>
 
-      <section class="section" style="padding-top: 1rem;">
+      <section class="section books-section">
         <div class="container">
-          <div class="catalog-tools reveal panel" style="padding:1rem;">
-            <div class="genre-row" aria-label="Genre filters">
-              <button class="genre-chip active" data-genre="all">All</button>
-              <button class="genre-chip" data-genre="fiction">Fiction</button>
-              <button class="genre-chip" data-genre="non-fiction">Non-Fiction</button>
-              <button class="genre-chip" data-genre="sci-fi">Sci-Fi</button>
-              <button class="genre-chip" data-genre="classics">Classics</button>
-              <button class="genre-chip" data-genre="self-help">Self-Help</button>
-              <button class="genre-chip" data-genre="fantasy">Fantasy</button>
+          <div class="catalog-tools reveal panel catalog-tools-panel">
+            <div class="catalog-controls" role="group" aria-label="Book filtering controls">
+              <div class="genre-row" role="group" aria-label="Genre filters">
+                <button class="genre-chip active" data-genre="all" type="button">All</button>
+                <button class="genre-chip" data-genre="fiction" type="button">Fiction</button>
+                <button class="genre-chip" data-genre="non-fiction" type="button">Non-Fiction</button>
+                <button class="genre-chip" data-genre="sci-fi" type="button">Sci-Fi</button>
+                <button class="genre-chip" data-genre="classics" type="button">Classics</button>
+                <button class="genre-chip" data-genre="self-help" type="button">Self-Help</button>
+                <button class="genre-chip" data-genre="fantasy" type="button">Fantasy</button>
+              </div>
+              <div class="search-actions">
+                <label class="search-wrap" for="book-search">
+                  <span class="visually-hidden">Search books by title or author</span>
+                  <input id="book-search" type="text" placeholder="Search books or authors" aria-label="Search books by title or author" autocomplete="off" />
+                </label>
+                <button class="btn-mini filter-reset" id="clear-filters" type="button" aria-label="Clear search and reset all filters">Clear</button>
+              </div>
             </div>
-            <label class="search-wrap">
-              <input id="book-search" type="text" placeholder="Search books or authors" aria-label="Search books" />
-            </label>
+            <p class="results-count" id="results-count" aria-live="polite"></p>
           </div>
 
           <div class="grid grid-4" id="book-grid">
@@ -106,11 +113,11 @@
             </article>
             <article class="book-card reveal book-item" data-title="Educated" data-author="Tara Westover" data-genre="non-fiction">
               <div class="book-cover"><img src="https://picsum.photos/seed/book12/400/600" alt="Educated cover" referrerpolicy="no-referrer"></div>
-              <div class="book-meta"><span class="book-category">Biography</span><h3 class="book-title">Educated</h3><p class="book-author">Tara Westover</p></div>
+              <div class="book-meta"><span class="book-category">Non-Fiction</span><h3 class="book-title">Educated</h3><p class="book-author">Tara Westover</p></div>
               <div class="book-row"><span class="book-price">$19.00</span><button class="btn-mini js-add-cart">Add</button></div>
             </article>
           </div>
-          <p id="no-results">No books match your current filters.</p>
+          <p id="no-results" role="status" aria-live="polite">No books match your current filters.</p>
         </div>
       </section>
     </main>
@@ -124,7 +131,7 @@
         <section>
           <h4>Explore</h4>
           <ul class="footer-links">
-            <li><a href="books.html">All Books</a></li>
+            <li><a href="books.html">View Books</a></li>
             <li><a href="books.html">Top Rated</a></li>
             <li><a href="services.html">Author Events</a></li>
           </ul>

@@ -384,6 +384,31 @@ main {
   margin-bottom: 1.4rem;
 }
 
+.books-section {
+  padding-top: 1rem;
+}
+
+.catalog-tools-panel {
+  padding: 1rem;
+}
+
+.catalog-controls {
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+
+.search-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex: 1;
+  min-width: 260px;
+}
+
 .search-wrap {
   position: relative;
   flex: 1;
@@ -425,6 +450,36 @@ main {
 .genre-chip:hover {
   background: var(--color-primary);
   color: #fff;
+}
+
+.genre-chip:focus-visible,
+.search-wrap input:focus-visible,
+.filter-reset:focus-visible {
+  outline: 2px solid rgba(245, 158, 11, 0.45);
+  outline-offset: 2px;
+}
+
+.filter-reset {
+  white-space: nowrap;
+}
+
+.results-count {
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--color-muted);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .page-hero {
@@ -773,6 +828,10 @@ main {
 @media (max-width: 640px) {
   .grid-4 {
     grid-template-columns: 1fr;
+  }
+
+  .search-actions {
+    min-width: 100%;
   }
 
   .hero {
