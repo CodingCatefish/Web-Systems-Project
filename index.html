@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="css/styles.css" />
 </head>
 <body>
+  <a href="#main-content" class="skip-link">Skip to main content</a>
   <div class="site-shell">
     <header class="site-header">
       <div class="container header-row">
@@ -19,12 +20,13 @@
           <a class="nav-link" href="reviews.html">Reviews</a>
           <a class="nav-link" href="about.html">About</a>
           <a class="nav-link" href="login.html">Login</a>
+          <a class="nav-link" href="admin" id="admin-nav-link" style="display: none; font-weight: 800; color: var(--color-accent);">Admin</a>
           <a class="cart-link" href="books.html">Bag <span id="cart-count">0</span></a>
         </nav>
       </div>
     </header>
 
-    <main>
+    <main id="main-content">
       <section class="hero">
         <div class="hero-inner reveal">
           <span class="eyebrow">Independent Bookstore</span>
@@ -35,6 +37,21 @@
           <div class="actions">
             <a class="btn btn-primary" href="books.html">Browse Catalog</a>
             <a class="btn btn-soft" href="about.html">Our Story</a>
+          </div>
+        </div>
+      </section>
+
+      <section class="campaign-band">
+        <div class="container">
+          <div class="campaign-panel reveal">
+            <div class="campaign-copy">
+              <span class="campaign-kicker">Seasonal Feature</span>
+              <h2>Spring Reading Table</h2>
+              <p>
+                A calm mix of luminous fiction, reflective essays, and long-weekend favorites selected for slow afternoons in the cafe.
+              </p>
+            </div>
+            <a class="btn btn-primary" href="books.html">Explore the Collection</a>
           </div>
         </div>
       </section>
@@ -63,6 +80,41 @@
               <div class="feature-icon">🎤</div>
               <h3>Community Events</h3>
               <p>Book clubs, author sessions, and workshops bring readers together every week.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="container">
+          <div class="split-head reveal">
+            <div>
+              <h2 class="section-title">Upcoming Events</h2>
+              <p class="section-text">Quiet gatherings, thoughtful conversations, and evenings built around books.</p>
+            </div>
+            <a class="nav-link" href="services.html">View All Events</a>
+          </div>
+
+          <div class="grid grid-3">
+            <article class="event-card reveal">
+              <p class="event-date">March 22</p>
+              <h3>Poetry and Pour-Over Morning</h3>
+              <p>Join a small table reading of contemporary poems with complimentary house coffee and open discussion.</p>
+              <a class="event-link" href="services.html">Reserve a Spot</a>
+            </article>
+
+            <article class="event-card reveal">
+              <p class="event-date">March 27</p>
+              <h3>Staff Picks Salon</h3>
+              <p>Our booksellers introduce four recent favorites and share why each title earned a place on this month's front table.</p>
+              <a class="event-link" href="services.html">Learn More</a>
+            </article>
+
+            <article class="event-card reveal">
+              <p class="event-date">April 2</p>
+              <h3>Late Evening Book Club</h3>
+              <p>An after-hours discussion for readers who want a slower, more intimate conversation around literary fiction.</p>
+              <a class="event-link" href="services.html">Save Your Seat</a>
             </article>
           </div>
         </div>
