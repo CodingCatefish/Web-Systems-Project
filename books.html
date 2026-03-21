@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="css/styles.css" />
 </head>
 <body>
-  <a href="#main-content" class="skip-link" style="position: absolute; left: -9999px; z-index: 999; padding: 1rem; background: var(--color-primary); color: white; text-decoration: none;" onfocus="this.style.left='0'" onblur="this.style.left='-9999px'">Skip to main content</a>
+  <a href="#main-content" class="skip-link">Skip to main content</a>
   <div class="site-shell">
     <header class="site-header">
       <div class="container header-row">
@@ -35,20 +35,44 @@
 
       <section class="section" style="padding-top: 1rem;">
         <div class="container">
-          <div class="catalog-tools reveal panel" style="padding:1rem;">
-            <div class="genre-row" aria-label="Genre filters">
-              <button class="genre-chip active" data-genre="all" aria-pressed="true">All</button>
-              <button class="genre-chip" data-genre="fiction" aria-pressed="false">Fiction</button>
-              <button class="genre-chip" data-genre="non-fiction" aria-pressed="false">Non-Fiction</button>
-              <button class="genre-chip" data-genre="sci-fi" aria-pressed="false">Sci-Fi</button>
-              <button class="genre-chip" data-genre="classics" aria-pressed="false">Classics</button>
-              <button class="genre-chip" data-genre="self-help" aria-pressed="false">Self-Help</button>
-              <button class="genre-chip" data-genre="fantasy" aria-pressed="false">Fantasy</button>
+          <form class="catalog-tools reveal panel search-form" id="catalog-controls" aria-label="Search and filter books">
+            <div class="catalog-header">
+              <div>
+                <h2 class="catalog-title">Browse the collection</h2>
+                <p class="catalog-summary" id="catalog-results-summary" role="status" aria-live="polite"></p>
+              </div>
+              <button class="catalog-clear-all" id="clear-filters" type="button">Clear filters</button>
             </div>
-            <div class="search-wrap">
-              <input id="book-search" type="text" placeholder="Search books or authors" aria-label="Search books" />
+
+            <div class="catalog-control-grid">
+              <div class="search-wrap">
+                <label class="search-label" for="book-search">Search by title or author</label>
+                <div class="search-input-row">
+                  <input
+                    id="book-search"
+                    type="search"
+                    placeholder="Try Dune or Andy Weir"
+                    autocomplete="off"
+                    aria-describedby="catalog-results-summary"
+                  />
+                  <button class="catalog-clear" id="clear-search" type="button" hidden>Clear</button>
+                </div>
+              </div>
+
+              <fieldset class="genre-filter-group">
+                <legend>Filter by genre</legend>
+                <div class="genre-row">
+                  <button class="genre-chip active" data-genre="all" type="button" aria-pressed="true">All</button>
+                  <button class="genre-chip" data-genre="fiction" type="button" aria-pressed="false">Fiction</button>
+                  <button class="genre-chip" data-genre="non-fiction" type="button" aria-pressed="false">Non-Fiction</button>
+                  <button class="genre-chip" data-genre="sci-fi" type="button" aria-pressed="false">Sci-Fi</button>
+                  <button class="genre-chip" data-genre="classics" type="button" aria-pressed="false">Classics</button>
+                  <button class="genre-chip" data-genre="self-help" type="button" aria-pressed="false">Self-Help</button>
+                  <button class="genre-chip" data-genre="fantasy" type="button" aria-pressed="false">Fantasy</button>
+                </div>
+              </fieldset>
             </div>
-          </div>
+          </form>
 
           <div class="grid grid-4" id="book-grid">
             <article class="book-card reveal book-item" data-title="The Midnight Library" data-author="Matt Haig" data-genre="fiction">
@@ -112,7 +136,11 @@
               <div class="book-row"><span class="book-price">$19.00</span><button class="btn-mini js-add-cart">Add</button></div>
             </article>
           </div>
-          <p id="no-results" aria-live="polite">No books match your current filters.</p>
+          <div id="no-results" class="empty-state" hidden>
+            <h2>No books match this search</h2>
+            <p>Try a different title, author, or genre filter to see more of the catalog.</p>
+            <button class="btn btn-primary" id="reset-filters" type="button">Show all books</button>
+          </div>
         </div>
       </section>
     </main>

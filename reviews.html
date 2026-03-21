@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="css/styles.css" />
 </head>
 <body>
-  <a href="#main-content" class="skip-link" style="position: absolute; left: -9999px; z-index: 999; padding: 1rem; background: var(--color-primary); color: white; text-decoration: none;" onfocus="this.style.left='0'" onblur="this.style.left='-9999px'">Skip to main content</a>
+  <a href="#main-content" class="skip-link">Skip to main content</a>
   <div class="site-shell">
     <header class="site-header">
       <div class="container header-row">
@@ -42,31 +42,66 @@
             </div>
           </div>
 
-          <form class="review-form panel reveal" id="review-form">
+          <div class="form-status" id="review-form-status" aria-live="polite"></div>
+          <form class="review-form panel reveal" id="review-form" novalidate>
+            <div class="form-errors-summary" id="review-form-errors" role="alert" hidden></div>
             <div class="form-row">
               <div class="form-group">
                 <label for="review-name">Your Name</label>
-                <input type="text" id="review-name" placeholder="e.g. Jane D." required />
+                <input
+                  type="text"
+                  id="review-name"
+                  name="name"
+                  placeholder="e.g. Jane D."
+                  autocomplete="name"
+                  aria-describedby="review-name-error"
+                  required
+                />
+                <p class="field-error" id="review-name-error" hidden></p>
               </div>
               <div class="form-group">
                 <label for="review-book">Book Title</label>
-                <input type="text" id="review-book" placeholder="e.g. The Midnight Library" required />
+                <input
+                  type="text"
+                  id="review-book"
+                  name="book"
+                  placeholder="e.g. The Midnight Library"
+                  aria-describedby="review-book-error"
+                  required
+                />
+                <p class="field-error" id="review-book-error" hidden></p>
               </div>
             </div>
-            <div class="form-group">
-              <label>Your Rating</label>
-              <div class="star-input" id="star-input" role="group" aria-label="Rate this book">
-                <button type="button" class="star-btn" data-value="1" aria-label="1 star" aria-pressed="false">&#9733;</button>
-                <button type="button" class="star-btn" data-value="2" aria-label="2 stars" aria-pressed="false">&#9733;</button>
-                <button type="button" class="star-btn" data-value="3" aria-label="3 stars" aria-pressed="false">&#9733;</button>
-                <button type="button" class="star-btn" data-value="4" aria-label="4 stars" aria-pressed="false">&#9733;</button>
-                <button type="button" class="star-btn" data-value="5" aria-label="5 stars" aria-pressed="false">&#9733;</button>
+            <fieldset class="form-group rating-fieldset">
+              <legend>Your Rating</legend>
+              <div class="rating-group" id="star-input" aria-describedby="review-rating-help review-rating-error">
+                <input class="sr-only rating-input" type="radio" name="rating" id="rating-1" value="1" />
+                <label class="rating-star" for="rating-1"><span aria-hidden="true">&#9733;</span><span class="sr-only">1 star</span></label>
+                <input class="sr-only rating-input" type="radio" name="rating" id="rating-2" value="2" />
+                <label class="rating-star" for="rating-2"><span aria-hidden="true">&#9733;</span><span class="sr-only">2 stars</span></label>
+                <input class="sr-only rating-input" type="radio" name="rating" id="rating-3" value="3" />
+                <label class="rating-star" for="rating-3"><span aria-hidden="true">&#9733;</span><span class="sr-only">3 stars</span></label>
+                <input class="sr-only rating-input" type="radio" name="rating" id="rating-4" value="4" />
+                <label class="rating-star" for="rating-4"><span aria-hidden="true">&#9733;</span><span class="sr-only">4 stars</span></label>
+                <input class="sr-only rating-input" type="radio" name="rating" id="rating-5" value="5" />
+                <label class="rating-star" for="rating-5"><span aria-hidden="true">&#9733;</span><span class="sr-only">5 stars</span></label>
               </div>
-              <input type="hidden" id="review-rating" value="0" />
-            </div>
+              <p class="helper" id="review-rating-help">Choose a rating from 1 to 5 stars.</p>
+              <p class="field-error" id="review-rating-error" hidden></p>
+            </fieldset>
             <div class="form-group">
               <label for="review-text">Your Review</label>
-              <textarea id="review-text" rows="4" placeholder="What did you think of the book?" required></textarea>
+              <textarea
+                id="review-text"
+                name="text"
+                rows="5"
+                maxlength="600"
+                placeholder="What did you think of the book?"
+                aria-describedby="review-text-help review-text-error"
+                required
+              ></textarea>
+              <p class="helper" id="review-text-help">Keep it respectful and specific. Up to 600 characters.</p>
+              <p class="field-error" id="review-text-error" hidden></p>
             </div>
             <button type="submit" class="btn btn-primary">Submit Review</button>
           </form>
