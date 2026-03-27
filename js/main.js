@@ -5,7 +5,6 @@
 
   var CART_ITEMS_KEY = 'pagemark_cart_items';
   var MOCK_USERS_KEY = 'pagemark_mock_users';
-  var MOCK_SESSION_KEY = 'pagemark_mock_session';
   var adminLink = null;
 
   var cartDrawer = null;
@@ -38,33 +37,13 @@
       var raw = storage.getItem(key);
       return raw ? JSON.parse(raw) : fallback;
     } catch (error) {
-      safeRemoveItem(storage, key);
+      storage.removeItem(key);
       return fallback;
     }
   }
 
   function writeJson(storage, key, value) {
-    try {
-      storage.setItem(key, JSON.stringify(value));
-      return true;
-    } catch (error) {
-      logClientIssue('storage-write', error);
-      return false;
-    }
-  }
-
-  function safeRemoveItem(storage, key) {
-    try {
-      storage.removeItem(key);
-    } catch (error) {
-      logClientIssue('storage-remove', error);
-    }
-  }
-
-  function logClientIssue(context, error) {
-    if (window.console && typeof window.console.warn === 'function') {
-      window.console.warn('[pagemark]', context, error && error.message ? error.message : error);
-    }
+    storage.setItem(key, JSON.stringify(value));
   }
 
   function formatCurrency(value) {
@@ -91,23 +70,58 @@
     }
   }
 
-  async function loadSessionAndShowAdmin() {
-    if (!adminLink) return;
+  function getMockSessionName() {
+    try {
+      var raw = sessionStorage.getItem('pagemark_mock_session');
+      if (!raw) return null;
+      var mock = JSON.parse(raw);
+      if (!mock || !mock.name) return null;
+      var n = String(mock.name).trim();
+      return n || null;
+    } catch (error) {
+      return null;
+    }
+  }
 
+  async function loadSessionAndNav() {
+    var session = null;
     try {
       var response = await fetch('/api/session');
-      if (!response.ok) {
-        throw new Error('Session request failed');
-      }
-
-      var session = await response.json();
-      adminLink.hidden = true;
-
-      if (session && session.role === 'admin') {
-        adminLink.hidden = false;
-      }
+      session = await response.json();
     } catch (error) {
-      adminLink.hidden = true;
+      session = null;
+    }
+
+    if (adminLink) {
+      if (session && session.role === 'admin') {
+        adminLink.style.display = 'inline-flex';
+      } else {
+        adminLink.style.display = 'none';
+      }
+    }
+
+    var accountLink = document.getElementById('account-nav-link');
+    if (!accountLink) return;
+
+    var displayName = null;
+    if (session && session.role === 'admin') {
+      displayName = (session.name && String(session.name).trim()) || 'Admin';
+    } else if (session && session.email) {
+      displayName = (session.name && String(session.name).trim()) || session.email.split('@')[0];
+    }
+
+    if (!displayName) {
+      displayName = getMockSessionName();
+    }
+
+    if (displayName) {
+      accountLink.textContent = displayName;
+      accountLink.setAttribute('aria-label', 'Signed in as ' + displayName);
+      accountLink.classList.add('is-signed-in');
+    } else {
+      accountLink.textContent = 'Login';
+      accountLink.removeAttribute('aria-label');
+      accountLink.classList.remove('is-signed-in');
     }
   }
 
@@ -187,7 +201,6 @@
 
     summary.hidden = true;
     summary.textContent = '';
-    summary.removeAttribute('tabindex');
   }
 
   function showFormSummary(form, messages) {
@@ -202,6 +215,15 @@
 
   function validateEmail(value) {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+  }
+
+  function getMockUsers() {
+    var users = readJson(localStorage, MOCK_USERS_KEY, []);
+    return Array.isArray(users) ? users : [];
+  }
+
+  function saveMockUsers(users) {
+    writeJson(localStorage, MOCK_USERS_KEY, users);
   }
 
   function slugify(value) {
@@ -297,16 +319,9 @@
   }
 
   function saveCartItems(items) {
-    if (!writeJson(sessionStorage, CART_ITEMS_KEY, items)) {
-      if (cartStatusNode) {
-        setStatus(cartStatusNode, 'Your browser blocked saving bag updates. Check storage settings and try again.', 'error');
-      }
-      return false;
-    }
-
+    writeJson(sessionStorage, CART_ITEMS_KEY, items);
     updateCartCount();
     renderCartDrawer();
-    return true;
   }
 
   function cartItemCount(items) {
@@ -366,11 +381,11 @@
       });
     }
 
-    return saveCartItems(items);
+    saveCartItems(items);
   }
 
   function removeCartItem(id) {
-    return saveCartItems(getCartItems().filter(function (item) {
+    saveCartItems(getCartItems().filter(function (item) {
       return item.id !== id;
     }));
   }
@@ -429,10 +444,9 @@
       if (!removeButton) return;
 
       var title = removeButton.getAttribute('data-remove-title') || 'Item';
-      if (removeCartItem(removeButton.getAttribute('data-remove-id'))) {
-        setStatus(cartStatusNode, '"' + title + '" removed from your bag.', 'success');
-        showToast('Removed "' + title + '" from bag');
-      }
+      removeCartItem(removeButton.getAttribute('data-remove-id'));
+      setStatus(cartStatusNode, '"' + title + '" removed from your bag.', 'success');
+      showToast('Removed "' + title + '" from bag');
     });
 
     cartCheckoutButton.addEventListener('click', function () {
@@ -442,11 +456,7 @@
         return;
       }
 
-      if (!saveCartItems([])) {
-        setStatus(cartStatusNode, 'Checkout could not clear your bag because browser storage is unavailable.', 'error');
-        return;
-      }
-
+      saveCartItems([]);
       setStatus(cartStatusNode, 'Mock checkout complete. No real order was placed.', 'success');
       showToast('Mock checkout complete');
     });
@@ -574,10 +584,11 @@
       button.setAttribute('aria-label', 'Add ' + book.title + ' to bag');
 
       button.addEventListener('click', function () {
-        if (addToCart(book) && cartStatusNode) {
+        addToCart(book);
+        if (cartStatusNode) {
           setStatus(cartStatusNode, '"' + book.title + '" added to your bag.', 'success');
-          showToast('Added "' + book.title + '" to bag');
         }
+        showToast('Added "' + book.title + '" to bag');
       });
     });
 
@@ -705,19 +716,17 @@
   ];
 
   function getReviews() {
-    var reviews = readJson(localStorage, REVIEWS_KEY, null);
-    if (Array.isArray(reviews)) {
-      return reviews;
+    var reviews = readJson(localStorage, REVIEWS_KEY, defaultReviews);
+    if (!localStorage.getItem(REVIEWS_KEY)) {
+      writeJson(localStorage, REVIEWS_KEY, defaultReviews);
     }
-
-    writeJson(localStorage, REVIEWS_KEY, defaultReviews);
-    return defaultReviews.slice();
+    return Array.isArray(reviews) ? reviews : defaultReviews.slice();
   }
 
   function saveReview(review) {
     var reviews = getReviews();
     reviews.unshift(review);
-    return writeJson(localStorage, REVIEWS_KEY, reviews);
+    writeJson(localStorage, REVIEWS_KEY, reviews);
   }
 
   function renderStars(rating) {
@@ -860,17 +869,13 @@
         String(today.getMonth() + 1).padStart(2, '0') + '-' +
         String(today.getDate()).padStart(2, '0');
 
-      if (!saveReview({
+      saveReview({
         name: name,
         book: book,
         rating: rating,
         text: text,
         date: dateValue
-      })) {
-        showFormSummary(form, ['Your review could not be saved because browser storage is unavailable.']);
-        setStatus(status, 'Your review could not be saved because browser storage is unavailable.', 'error');
-        return;
-      }
+      });
 
       form.reset();
       updateRatingDisplay();
@@ -896,82 +901,6 @@
     });
   }
 
-  function clearLegacyAuthData() {
-    safeRemoveItem(localStorage, MOCK_USERS_KEY);
-    safeRemoveItem(sessionStorage, MOCK_SESSION_KEY);
-  }
-
-  function setFormBusy(form, isBusy) {
-    form.setAttribute('aria-busy', String(isBusy));
-    qsa('button, input[type="submit"]', form).forEach(function (control) {
-      control.disabled = isBusy;
-    });
-  }
-
-  function applyServerErrorToField(message, field, fallbackMessage) {
-    if (!field || !message) return false;
-
-    setFieldError(field, fallbackMessage || message);
-    return true;
-  }
-
-  function showServerFormError(form, status, message, handlers) {
-    var handled = false;
-
-    (handlers || []).forEach(function (handler) {
-      if (!handled && handler.test(message)) {
-        handled = handler.apply(message);
-      }
-    });
-
-    showFormSummary(form, [message]);
-    setStatus(status, message, 'error');
-  }
-
-  async function submitAuthForm(form, status, successMessage, serverErrorHandlers) {
-    if (!window.fetch || !window.FormData || !window.URLSearchParams) {
-      form.submit();
-      return true;
-    }
-
-    setFormBusy(form, true);
-
-    try {
-      var response = await fetch(form.action, {
-        method: (form.method || 'POST').toUpperCase(),
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
-        },
-        body: new URLSearchParams(new FormData(form)).toString(),
-        redirect: 'follow'
-      });
-
-      if (response.redirected) {
-        setStatus(status, successMessage, 'success');
-        window.setTimeout(function () {
-          window.location.href = response.url;
-        }, 250);
-        return true;
-      }
-
-      if (!response.ok) {
-        var message = (await response.text()).trim() || 'We could not complete your request. Please try again.';
-        showServerFormError(form, status, message, serverErrorHandlers);
-        return false;
-      }
-
-      setStatus(status, successMessage, 'success');
-      return true;
-    } catch (error) {
-      logClientIssue('auth-submit', error);
-      showFormSummary(form, ['We could not reach the server. Please try again.']);
-      setStatus(status, 'We could not reach the server. Please try again.', 'error');
-      return false;
-    } finally {
-      setFormBusy(form, false);
-    }
-  }
-
   function initSignupForm() {
     var form = document.getElementById('signup-form');
     if (!form) return;
@@ -990,7 +919,7 @@
       });
     });
 
-    form.addEventListener('submit', async function (event) {
+    form.addEventListener('submit', function (event) {
       event.preventDefault();
 
       clearFormSummary(form);
@@ -1002,6 +931,7 @@
       var email = emailInput.value.trim().toLowerCase();
       var password = passwordInput.value;
       var confirmPassword = confirmInput.value;
+      var users = getMockUsers();
 
       if (!name) {
         setFieldError(nameInput, 'Enter your full name.');
@@ -1011,11 +941,14 @@
       if (!validateEmail(email)) {
         setFieldError(emailInput, 'Enter a valid email address.');
         messages.push('Enter a valid email address.');
+      } else if (users.some(function (user) { return user.email === email; })) {
+        setFieldError(emailInput, 'An account with this email already exists in this browser.');
+        messages.push('This email is already registered.');
       }
 
-      if (password.length < 8 || password.length > 72) {
-        setFieldError(passwordInput, 'Use a password between 8 and 72 characters.');
-        messages.push('Use a password between 8 and 72 characters.');
+      if (password.length < 8) {
+        setFieldError(passwordInput, 'Use at least 8 characters.');
+        messages.push('Use at least 8 characters for your password.');
       }
 
       if (confirmPassword !== password) {
@@ -1029,34 +962,18 @@
         return;
       }
 
-      if (await submitAuthForm(form, status, 'Account created. Redirecting to sign in.', [
-        {
-          test: function (message) {
-            return /email/i.test(message);
-          },
-          apply: function (message) {
-            return applyServerErrorToField(message, emailInput);
-          }
-        },
-        {
-          test: function (message) {
-            return /name/i.test(message);
-          },
-          apply: function (message) {
-            return applyServerErrorToField(message, nameInput);
-          }
-        },
-        {
-          test: function (message) {
-            return /password/i.test(message);
-          },
-          apply: function (message) {
-            return applyServerErrorToField(message, passwordInput);
-          }
-        }
-      ])) {
-        form.reset();
-      }
+      users.push({
+        name: name,
+        email: email,
+        password: password
+      });
+
+      saveMockUsers(users);
+      form.reset();
+      setStatus(status, 'Account created in demo mode. Redirecting to sign in.', 'success');
+      window.setTimeout(function () {
+        window.location.href = 'login.html';
+      }, 900);
     });
   }
 
@@ -1076,7 +993,7 @@
       });
     });
 
-    form.addEventListener('submit', async function (event) {
+    form.addEventListener('submit', function (event) {
       event.preventDefault();
 
       clearFormSummary(form);
@@ -1087,15 +1004,29 @@
       var messages = [];
       var email = emailInput.value.trim().toLowerCase();
       var password = passwordInput.value;
+      var users = getMockUsers();
+      var user = users.find(function (entry) {
+        return entry.email === email;
+      });
 
       if (!validateEmail(email)) {
         setFieldError(emailInput, 'Enter a valid email address.');
         messages.push('Enter a valid email address.');
       }
 
-      if (password.length < 8 || password.length > 72) {
-        setFieldError(passwordInput, 'Enter a password between 8 and 72 characters.');
-        messages.push('Enter a password between 8 and 72 characters.');
+      if (password.length < 8) {
+        setFieldError(passwordInput, 'Enter the password you created on the sign-up page.');
+        messages.push('Enter a password with at least 8 characters.');
+      }
+
+      if (!messages.length && !user) {
+        setFieldError(emailInput, 'No demo account was found for this email.');
+        messages.push('No demo account was found for this email.');
+      }
+
+      if (!messages.length && user && user.password !== password) {
+        setFieldError(passwordInput, 'The password does not match this demo account.');
+        messages.push('The password does not match this demo account.');
       }
 
       if (messages.length) {
@@ -1104,24 +1035,15 @@
         return;
       }
 
-      await submitAuthForm(form, status, 'Signed in. Redirecting to the home page.', [
-        {
-          test: function (message) {
-            return /email/i.test(message);
-          },
-          apply: function (message) {
-            return applyServerErrorToField(message, emailInput);
-          }
-        },
-        {
-          test: function (message) {
-            return /password/i.test(message);
-          },
-          apply: function (message) {
-            return applyServerErrorToField(message, passwordInput);
-          }
-        }
-      ]);
+      sessionStorage.setItem('pagemark_mock_session', JSON.stringify({
+        email: user.email,
+        name: user.name
+      }));
+
+      setStatus(status, 'Signed in. Redirecting to the home page.', 'success');
+      window.setTimeout(function () {
+        window.location.href = 'index.html';
+      }, 900);
     });
   }
 
@@ -1145,9 +1067,8 @@
 
   document.addEventListener('DOMContentLoaded', function () {
     ensureMainLandmark();
-    clearLegacyAuthData();
     adminLink = document.getElementById('admin-nav-link');
-    loadSessionAndShowAdmin();
+    loadSessionAndNav();
     setActiveNavLink();
     updateYear();
     initResponsiveNav();

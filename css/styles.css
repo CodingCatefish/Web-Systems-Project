@@ -158,14 +158,12 @@ a {
   color: var(--color-primary);
 }
 
-.nav-link-admin {
-  color: #8a5900;
-  font-weight: 800;
-}
-
-.nav-link-admin:hover,
-.nav-link-admin.active {
-  color: #6d4700;
+.nav-account.is-signed-in {
+  color: var(--color-primary);
+  max-width: 10rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .cart-link {
@@ -756,8 +754,6 @@ main {
   gap: 1.4rem;
 }
 
-.site-footer h2,
-.site-footer h3,
 .site-footer h4 {
   margin: 0 0 0.8rem;
   color: #fff;
@@ -1095,10 +1091,6 @@ main {
   gap: 0.95rem;
 }
 
-.auth-form[aria-busy='true'] {
-  cursor: progress;
-}
-
 .field {
   display: flex;
   flex-direction: column;
@@ -1150,10 +1142,6 @@ main {
 .forgot a {
   color: var(--color-primary);
   font-weight: 600;
-}
-
-.auth-actions-single {
-  justify-content: flex-end;
 }
 
 .password-field {
