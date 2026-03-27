@@ -1,71 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login | Pagemark</title>
-    <link rel="stylesheet" href="css/styles.css">
+  <meta charset="UTF-8">
+  <meta http-equiv="refresh" content="0; url=login.php">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Redirecting to login</title>
 </head>
-<body class="auth-page">
-    <a href="#main-content" class="skip-link">Skip to main content</a>
-    <main id="main-content" class="auth-card">
-        <a class="auth-home-link" href="index.html">Back to home</a>
-        <div class="auth-logo">
-            <h1>Pagemark <span>Login</span></h1>
-        </div>
-        <p class="auth-subtitle">Sign in to access your account and manage your books.</p>
-        <p class="auth-notice">Sign-in is submitted to the server and protected with a session cookie. Use an account created from the sign-up page.</p>
-
-        <div class="form-status" id="login-status" aria-live="polite"></div>
-        <form class="auth-form" id="login-form" action="login.php" method="post" novalidate>
-            <div class="form-errors-summary" id="login-errors" role="alert" hidden></div>
-            <div class="field">
-                <label for="login-email">Email address</label>
-                <input
-                    type="email"
-                    id="login-email"
-                    name="email"
-                    placeholder="you@example.com"
-                    autocomplete="email"
-                    aria-describedby="login-email-help login-email-error"
-                    required
-                >
-                <p class="helper" id="login-email-help">Use the same email you registered with on this device.</p>
-                <p class="field-error" id="login-email-error" hidden></p>
-            </div>
-
-            <div class="field">
-                <label for="login-password">Password</label>
-                <div class="password-field">
-                    <input
-                        type="password"
-                        id="login-password"
-                        name="password"
-                        placeholder="Enter your password"
-                        autocomplete="current-password"
-                        aria-describedby="login-password-help login-password-error"
-                        required
-                    >
-                    <button class="password-toggle" type="button" data-toggle-password="login-password" aria-label="Show password">Show</button>
-                </div>
-                <p class="helper" id="login-password-help">Passwords must be at least 8 characters.</p>
-                <p class="field-error" id="login-password-error" hidden></p>
-            </div>
-
-            <div class="actions auth-actions-single">
-                <span class="forgot">
-                    <a href="signup.html">Need an account first?</a>
-                </span>
-            </div>
-
-            <button class="auth-submit" type="submit">Sign in</button>
-        </form>
-
-        <p class="auth-footer-text">
-            Don't have an account?
-            <a href="signup.html">Sign up</a>
-        </p>
-    </main>
-    <script src="js/main.js"></script>
+<body>
+  <p>Redirecting to <a href="login.php">login</a>...</p>
 </body>
 </html>

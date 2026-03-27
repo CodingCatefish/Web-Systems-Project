@@ -4,7 +4,13 @@ declare(strict_types=1);
 require_once __DIR__ . '/includes/auth.php';
 
 no_cache();
-require_admin();
+$adminUser = require_admin();
+$counts = dashboard_counts();
+
+function format_dashboard_count(?int $count): string
+{
+    return $count === null ? 'N/A' : (string) $count;
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -129,6 +135,7 @@ require_admin();
         <nav class="nav-links" aria-label="Admin navigation">
           <a class="nav-link" href="index.html">Public Site</a>
           <form action="logout.php" method="POST">
+            <?= csrf_input() ?>
             <button class="admin-logout" type="submit">Logout</button>
           </form>
         </nav>
@@ -140,27 +147,27 @@ require_admin();
         <section class="admin-head reveal">
           <div>
             <h1 class="admin-title">Admin Dashboard</h1>
-            <p class="admin-subtitle">Restricted area for bookstore administrators.</p>
+            <p class="admin-subtitle">Restricted area for bookstore administrators. Signed in as <?= e((string) $adminUser['email']) ?>.</p>
           </div>
         </section>
 
         <div class="admin-grid">
           <article class="admin-card reveal">
             <h2>Books</h2>
-            <p class="admin-stat">0</p>
-            <p class="admin-note">Create and manage your catalog records from this panel once the full backend CRUD is connected.</p>
+            <p class="admin-stat"><?= e(format_dashboard_count($counts['books'])) ?></p>
+            <p class="admin-note">Current count from the `Book` table. This stays available even before full CRUD screens are connected.</p>
           </article>
 
           <article class="admin-card reveal">
             <h2>Reviews</h2>
-            <p class="admin-stat">0</p>
-            <p class="admin-note">Review moderation controls can be attached here after database-backed review routes are implemented.</p>
+            <p class="admin-stat"><?= e(format_dashboard_count($counts['reviews'])) ?></p>
+            <p class="admin-note">Current count from the `Review` table. Browser-local review drafts do not appear here until they are stored server-side.</p>
           </article>
 
           <article class="admin-card reveal">
             <h2>Users</h2>
-            <p class="admin-stat">0</p>
-            <p class="admin-note">User and role management can be plugged in later without changing this route-level access guard.</p>
+            <p class="admin-stat"><?= e(format_dashboard_count($counts['users'])) ?></p>
+            <p class="admin-note">Current count from the `users` auth table. User and role management can be added later without changing this guard.</p>
           </article>
         </div>
 

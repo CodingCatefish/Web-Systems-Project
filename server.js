@@ -351,7 +351,7 @@ function handleAdminPage(request, response) {
   const session = getSession(request, response);
 
   if (!session || session.role !== 'admin') {
-    sendRedirect(response, '/login.html');
+    sendRedirect(response, '/login.php');
     return;
   }
 
@@ -361,7 +361,7 @@ function handleAdminPage(request, response) {
 
 function handleLogout(request, response) {
   clearSession(request, response);
-  sendRedirect(response, '/login.html');
+    sendRedirect(response, '/login.php');
 }
 
 function handleSessionInfo(request, response) {
@@ -402,7 +402,7 @@ async function handleSignup(request, response) {
         [name, email, passwordHash]
       );
 
-      response.writeHead(302, { Location: '/login.html' });
+      response.writeHead(302, { Location: '/login.php' });
       response.end();
     } finally {
       connection.release();

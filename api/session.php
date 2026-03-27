@@ -8,4 +8,10 @@ if (request_method() !== 'GET') {
 }
 
 no_cache();
-send_json(200, current_user(), ['Cache-Control' => 'no-store']);
+$user = current_user();
+$payload = [
+    'user' => $user,
+    'csrf_token' => csrf_token(),
+];
+
+send_json(200, $payload, ['Cache-Control' => 'no-store']);

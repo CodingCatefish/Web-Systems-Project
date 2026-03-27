@@ -94,6 +94,11 @@ function db(): PDO
     return $pdo;
 }
 
+function e(?string $value): string
+{
+    return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
+}
+
 function request_method(): string
 {
     return strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
@@ -157,6 +162,45 @@ function no_cache(): void
     header('Cache-Control: no-store');
 }
 
+function client_ip(): string
+{
+    $candidateHeaders = [
+        'HTTP_CF_CONNECTING_IP',
+        'HTTP_X_FORWARDED_FOR',
+        'REMOTE_ADDR',
+    ];
+
+    foreach ($candidateHeaders as $header) {
+        $value = trim((string) ($_SERVER[$header] ?? ''));
+        if ($value === '') {
+            continue;
+        }
+
+        if ($header === 'HTTP_X_FORWARDED_FOR') {
+            $parts = array_map('trim', explode(',', $value));
+            $value = (string) ($parts[0] ?? '');
+        }
+
+        if ($value !== '') {
+            return substr($value, 0, 45);
+        }
+    }
+
+    return 'unknown';
+}
+
+function absolute_url(string $path, array $query = []): string
+{
+    $origin = current_origin();
+    $url = $origin . '/' . ltrim($path, '/');
+
+    if ($query !== []) {
+        $url .= '?' . http_build_query($query);
+    }
+
+    return $url;
+}
+
 function redirect_with_query(string $location, array $params = [], int $statusCode = 303): never
 {
     $filtered = [];
@@ -212,6 +256,27 @@ function redirect_to(string $location, int $statusCode = 302): never
 function log_server_error(string $context, Throwable $error): void
 {
     error_log(sprintf('[%s] %s', $context, $error->getMessage()));
+}
+
+function log_security_event(string $event, array $context = []): void
+{
+    $payload = [
+        'event' => $event,
+        'ip' => client_ip(),
+        'path' => (string) ($_SERVER['REQUEST_URI'] ?? ''),
+        'method' => request_method(),
+        'time' => gmdate('c'),
+    ];
+
+    foreach ($context as $key => $value) {
+        if ($value === null || $value === '') {
+            continue;
+        }
+
+        $payload[$key] = $value;
+    }
+
+    error_log('[security] ' . json_encode($payload, JSON_UNESCAPED_SLASHES));
 }
 
 apply_security_headers();

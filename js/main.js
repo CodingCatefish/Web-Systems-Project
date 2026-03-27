@@ -125,7 +125,7 @@
     }
 
     var url = new URL(window.location.href);
-    ['auth_error', 'auth_notice', 'email', 'name'].forEach(function (key) {
+    ['auth_error', 'auth_notice', 'email', 'name', 'retry_after'].forEach(function (key) {
       url.searchParams.delete(key);
     });
 
@@ -164,12 +164,22 @@
           csrf_invalid_origin: {
             summary: 'Your session could not be verified. Please try signing in again from this page.'
           },
+          csrf_invalid_token: {
+            summary: 'Your session expired. Please try signing in again.'
+          },
+          login_rate_limited: {
+            summary: 'Too many sign-in attempts. Please wait before trying again.'
+          },
+          login_required: {
+            summary: 'Sign in to continue.'
+          },
           server_error: {
             summary: 'We could not sign you in right now. Please try again.'
           }
         },
         notices: {
-          account_created: 'Account created. You can sign in now.'
+          account_created: 'Account created. You can sign in now.',
+          password_reset_completed: 'Password updated. You can sign in with your new password now.'
         }
       },
       'signup-form': {
@@ -220,8 +230,82 @@
           csrf_invalid_origin: {
             summary: 'Your session could not be verified. Please submit the form again from this page.'
           },
+          csrf_invalid_token: {
+            summary: 'Your session expired. Please submit the form again.'
+          },
           server_error: {
             summary: 'We could not create your account right now. Please try again.'
+          }
+        },
+        notices: {}
+      },
+      'forgot-password-form': {
+        valueFields: {
+          email: '#forgot-password-email'
+        },
+        errors: {
+          missing_reset_email: {
+            summary: 'Enter the email address for your account.',
+            fields: [
+              { selector: '#forgot-password-email', message: 'Email address is required.' }
+            ]
+          },
+          invalid_email: {
+            summary: 'Enter a valid email address.',
+            fields: [
+              { selector: '#forgot-password-email', message: 'Enter a valid email address.' }
+            ]
+          },
+          csrf_invalid_origin: {
+            summary: 'Your session could not be verified. Please submit the form again from this page.'
+          },
+          csrf_invalid_token: {
+            summary: 'Your session expired. Please submit the form again.'
+          },
+          server_error: {
+            summary: 'We could not start a password reset right now. Please try again.'
+          }
+        },
+        notices: {
+          password_reset_requested: 'If an account exists for that email, a reset link is ready.'
+        }
+      },
+      'reset-password-form': {
+        valueFields: {},
+        errors: {
+          missing_reset_fields: {
+            summary: 'Enter and confirm your new password.',
+            fields: [
+              { selector: '#reset-password', message: 'Password is required.' },
+              { selector: '#reset-confirm-password', message: 'Please confirm your password.' }
+            ]
+          },
+          invalid_password_length: {
+            summary: 'Use a password between 8 and 72 characters.',
+            fields: [
+              { selector: '#reset-password', message: 'Use a password between 8 and 72 characters.' }
+            ]
+          },
+          password_mismatch: {
+            summary: 'Password confirmation must match.',
+            fields: [
+              { selector: '#reset-confirm-password', message: 'Password confirmation must match.' }
+            ]
+          },
+          invalid_reset_token: {
+            summary: 'This reset link is invalid. Request a new password reset link.'
+          },
+          expired_reset_token: {
+            summary: 'This reset link has expired. Request a new password reset link.'
+          },
+          csrf_invalid_origin: {
+            summary: 'Your session could not be verified. Please submit the form again from this page.'
+          },
+          csrf_invalid_token: {
+            summary: 'Your session expired. Please submit the form again.'
+          },
+          server_error: {
+            summary: 'We could not reset your password right now. Please try again.'
           }
         },
         notices: {}
@@ -271,9 +355,18 @@
       }
 
       if (entry.summary) {
-        setSummaryMessage(summary, entry.summary);
+        var summaryMessage = entry.summary;
+        if (errorCode === 'login_rate_limited') {
+          var retryAfter = parseInt(params.get('retry_after') || '0', 10) || 0;
+          if (retryAfter > 0) {
+            var minutes = Math.ceil(retryAfter / 60);
+            summaryMessage += ' Try again in about ' + minutes + ' minute' + (minutes === 1 ? '' : 's') + '.';
+          }
+        }
+
+        setSummaryMessage(summary, summaryMessage);
         if (status) {
-          status.textContent = entry.summary;
+          status.textContent = summaryMessage;
         }
       }
 
@@ -305,8 +398,16 @@
       }
 
       return response.json();
+    }).then(function (payload) {
+      return {
+        user: payload && payload.user ? payload.user : null,
+        csrfToken: payload && payload.csrf_token ? payload.csrf_token : ''
+      };
     }).catch(function () {
-      return null;
+      return {
+        user: null,
+        csrfToken: ''
+      };
     });
 
     return sessionRequest;
@@ -328,21 +429,31 @@
     }
   }
 
-  function ensureDynamicLogoutControl(nav) {
+  function ensureDynamicLogoutControl(nav, csrfToken) {
     if (!nav) return null;
 
     var existing = nav.querySelector('.nav-session-form');
     if (existing) {
+      var currentTokenInput = existing.querySelector('input[name="csrf_token"]');
+      if (currentTokenInput) {
+        currentTokenInput.value = csrfToken || '';
+      }
       return existing;
     }
 
     var form = document.createElement('form');
     var button = document.createElement('button');
+    var tokenInput = document.createElement('input');
     var cartLink = nav.querySelector('.cart-link');
 
     form.className = 'nav-inline-form nav-session-form';
     form.method = 'post';
     form.action = 'logout.php';
+
+    tokenInput.type = 'hidden';
+    tokenInput.name = 'csrf_token';
+    tokenInput.value = csrfToken || '';
+    form.appendChild(tokenInput);
 
     button.type = 'submit';
     button.className = 'nav-link nav-session-button';
@@ -367,11 +478,14 @@
     var nav = accountLink ? accountLink.parentElement : (adminLink ? adminLink.parentElement : null);
     if (!nav) return;
 
-    getSessionInfo().then(function (user) {
+    getSessionInfo().then(function (session) {
+      var user = session && session.user ? session.user : null;
+      var csrfToken = session && session.csrfToken ? session.csrfToken : '';
+
       if (!user) {
         if (accountLink) {
           accountLink.textContent = 'Login';
-          accountLink.href = 'login.html';
+          accountLink.href = 'login.php';
           accountLink.removeAttribute('title');
         }
 
@@ -393,7 +507,7 @@
         adminLink.style.display = user.role === 'admin' ? '' : 'none';
       }
 
-      ensureDynamicLogoutControl(nav);
+      ensureDynamicLogoutControl(nav, csrfToken);
     });
   }
 
@@ -938,10 +1052,49 @@
     return errors;
   }
 
+  function validateForgotPasswordForm(form) {
+    var email = form.querySelector('#forgot-password-email');
+    var errors = [];
+
+    if (!email.value.trim()) {
+      errors.push({ input: email, message: 'Email address is required.' });
+    } else if (!isValidEmail(email.value.trim()) || email.value.trim().length > 254) {
+      errors.push({ input: email, message: 'Enter a valid email address.' });
+    }
+
+    return errors;
+  }
+
+  function validateResetPasswordForm(form) {
+    var password = form.querySelector('#reset-password');
+    var confirmPassword = form.querySelector('#reset-confirm-password');
+    var errors = [];
+
+    if (!password || password.disabled) {
+      return errors;
+    }
+
+    if (!password.value) {
+      errors.push({ input: password, message: 'Password is required.' });
+    } else if (password.value.length < 8 || password.value.length > 72) {
+      errors.push({ input: password, message: 'Use a password between 8 and 72 characters.' });
+    }
+
+    if (!confirmPassword.value) {
+      errors.push({ input: confirmPassword, message: 'Please confirm your password.' });
+    } else if (password.value !== confirmPassword.value) {
+      errors.push({ input: confirmPassword, message: 'Password confirmation must match.' });
+    }
+
+    return errors;
+  }
+
   function initAuthForms() {
     [
       { formId: 'login-form', statusId: 'login-status', validate: validateLoginForm },
-      { formId: 'signup-form', statusId: 'signup-status', validate: validateSignupForm }
+      { formId: 'signup-form', statusId: 'signup-status', validate: validateSignupForm },
+      { formId: 'forgot-password-form', statusId: 'forgot-password-status', validate: validateForgotPasswordForm },
+      { formId: 'reset-password-form', statusId: 'reset-password-status', validate: validateResetPasswordForm }
     ].forEach(function (config) {
       var form = document.getElementById(config.formId);
       if (!form) return;
@@ -1164,7 +1317,6 @@
 
     if (!form || !starInput) return;
 
-    var stars = starInput.querySelectorAll('.star-btn');
     var ratingInputs = starInput.querySelectorAll('input[name="rating"]');
     var ratingLabels = starInput.querySelectorAll('.rating-star');
 
@@ -1193,26 +1345,22 @@
         label.classList.toggle('active', inputValue > 0 && inputValue <= value);
       });
 
-      stars.forEach(function (star) {
-        var starValue = parseInt(star.getAttribute('data-value'), 10) || 0;
-        star.classList.toggle('active', starValue > 0 && starValue <= value);
-      });
     }
 
-    stars.forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        var val = parseInt(btn.getAttribute('data-value'), 10);
-        setSelectedRating(val);
-        setFieldError(null, ratingError, '');
-      });
-
-      btn.addEventListener('mouseenter', function () {
-        var val = parseInt(btn.getAttribute('data-value'), 10);
+    ratingLabels.forEach(function (label) {
+      label.addEventListener('mouseenter', function () {
+        var inputId = label.getAttribute('for');
+        var input = inputId ? document.getElementById(inputId) : null;
+        var val = input ? (parseInt(input.value, 10) || 0) : 0;
         setSelectedRating(val);
       });
     });
 
     ratingInputs.forEach(function (input) {
+      input.addEventListener('focus', function () {
+        setSelectedRating(parseInt(input.value, 10) || 0);
+      });
+
       input.addEventListener('change', function () {
         setSelectedRating(parseInt(input.value, 10) || 0);
         setFieldError(null, ratingError, '');

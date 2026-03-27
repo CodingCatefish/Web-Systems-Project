@@ -19,7 +19,7 @@
           <a class="nav-link" href="services.html">Services</a>
           <a class="nav-link" href="reviews.html">Reviews</a>
           <a class="nav-link" href="about.html">About</a>
-          <a class="nav-link nav-account" href="login.html" id="account-nav-link">Login</a>
+          <a class="nav-link nav-account" href="login.php" id="account-nav-link">Login</a>
           <a class="nav-link" href="admin.php" id="admin-nav-link" style="display: none; font-weight: 800; color: var(--color-accent);">Admin</a>
           <a class="cart-link" href="books.html">Bag <span id="cart-count">0</span></a>
         </nav>
@@ -76,16 +76,16 @@
             <fieldset class="form-group rating-fieldset">
               <legend>Your Rating</legend>
               <div class="rating-group" id="star-input" aria-describedby="review-rating-help review-rating-error">
-                <input class="sr-only rating-input" type="radio" name="rating" id="rating-1" value="1" />
-                <label class="rating-star" for="rating-1"><span aria-hidden="true">&#9733;</span><span class="sr-only">1 star</span></label>
-                <input class="sr-only rating-input" type="radio" name="rating" id="rating-2" value="2" />
-                <label class="rating-star" for="rating-2"><span aria-hidden="true">&#9733;</span><span class="sr-only">2 stars</span></label>
-                <input class="sr-only rating-input" type="radio" name="rating" id="rating-3" value="3" />
-                <label class="rating-star" for="rating-3"><span aria-hidden="true">&#9733;</span><span class="sr-only">3 stars</span></label>
-                <input class="sr-only rating-input" type="radio" name="rating" id="rating-4" value="4" />
-                <label class="rating-star" for="rating-4"><span aria-hidden="true">&#9733;</span><span class="sr-only">4 stars</span></label>
-                <input class="sr-only rating-input" type="radio" name="rating" id="rating-5" value="5" />
-                <label class="rating-star" for="rating-5"><span aria-hidden="true">&#9733;</span><span class="sr-only">5 stars</span></label>
+                <input class="visually-hidden rating-input" type="radio" name="rating" id="rating-1" value="1" />
+                <label class="rating-star" for="rating-1"><span aria-hidden="true">&#9733;</span><span class="visually-hidden">1 star</span></label>
+                <input class="visually-hidden rating-input" type="radio" name="rating" id="rating-2" value="2" />
+                <label class="rating-star" for="rating-2"><span aria-hidden="true">&#9733;</span><span class="visually-hidden">2 stars</span></label>
+                <input class="visually-hidden rating-input" type="radio" name="rating" id="rating-3" value="3" />
+                <label class="rating-star" for="rating-3"><span aria-hidden="true">&#9733;</span><span class="visually-hidden">3 stars</span></label>
+                <input class="visually-hidden rating-input" type="radio" name="rating" id="rating-4" value="4" />
+                <label class="rating-star" for="rating-4"><span aria-hidden="true">&#9733;</span><span class="visually-hidden">4 stars</span></label>
+                <input class="visually-hidden rating-input" type="radio" name="rating" id="rating-5" value="5" />
+                <label class="rating-star" for="rating-5"><span aria-hidden="true">&#9733;</span><span class="visually-hidden">5 stars</span></label>
               </div>
               <p class="helper" id="review-rating-help">Choose a rating from 1 to 5 stars.</p>
               <p class="field-error" id="review-rating-error" hidden></p>
