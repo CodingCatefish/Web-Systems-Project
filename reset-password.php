@@ -3,9 +3,14 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/includes/auth.php';
 
-$token = trim((string) ($_REQUEST['token'] ?? ''));
+$method = request_method();
+if ($method === 'POST') {
+    $token = trim((string) ($_POST['token'] ?? ''));
+} else {
+    $token = trim((string) ($_GET['token'] ?? ''));
+}
 
-if (request_method() === 'POST') {
+if ($method === 'POST') {
     try {
         $password = (string) ($_POST['password'] ?? '');
         $confirmPassword = (string) ($_POST['confirmPassword'] ?? '');
