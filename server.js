@@ -1,5 +1,10 @@
 'use strict';
 
+if (require.main === module) {
+  console.error('This project now uses the PHP backend. Start it with `php -S 127.0.0.1:3000` from the repository root.');
+  process.exit(1);
+}
+
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
@@ -15,7 +20,7 @@ const DB_CONFIG = {
   host: process.env.DB_HOST || 'localhost',
   user: process.env.DB_USER || 'root',
   password: process.env.DB_PASSWORD || '',
-  database: process.env.DB_NAME || 'bookstore_login',
+  database: process.env.DB_NAME || 'bookstore',
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0
@@ -210,9 +215,9 @@ function isValidEmail(value) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
-function validateSignupInput(name, email, password) {
-  if (!name || !email || !password) {
-    return 'Name, email and password are required.';
+function validateSignupInput(name, email, password, confirmPassword) {
+  if (!name || !email || !password || !confirmPassword) {
+    return 'Name, email, password and password confirmation are required.';
   }
 
   if (!isValidEmail(email) || email.length > 254) {
@@ -225,6 +230,10 @@ function validateSignupInput(name, email, password) {
 
   if (password.length < 8 || password.length > 72) {
     return 'Use a password between 8 and 72 characters.';
+  }
+
+  if (password !== confirmPassword) {
+    return 'Password confirmation must match.';
   }
 
   return '';
@@ -366,7 +375,8 @@ async function handleSignup(request, response) {
     const name = (formData.name || '').trim();
     const email = (formData.email || '').trim().toLowerCase();
     const password = formData.password || '';
-    const validationError = validateSignupInput(name, email, password);
+    const confirmPassword = formData.confirmPassword || '';
+    const validationError = validateSignupInput(name, email, password, confirmPassword);
 
     if (validationError) {
       sendText(response, 400, validationError);

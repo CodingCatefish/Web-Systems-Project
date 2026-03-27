@@ -104,3 +104,20 @@ CREATE TABLE Review_Book (
     ON DELETE CASCADE
     ON UPDATE CASCADE
 ) ENGINE=InnoDB;
+
+-- ---------------------------------------------------------------------------
+-- Application auth table used by the implemented PHP/MySQL login flow
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE users (
+  id            BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  name          VARCHAR(80)     NOT NULL,
+  email         VARCHAR(254)    NOT NULL,
+  password_hash VARCHAR(255)    NOT NULL,
+  role          VARCHAR(32)     NOT NULL DEFAULT 'customer',
+  created_at    TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at    TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_users_email (email),
+  KEY idx_users_role (role)
+) ENGINE=InnoDB;

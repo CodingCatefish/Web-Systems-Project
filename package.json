@@ -2,11 +2,11 @@
   "name": "web-systems-project",
   "version": "1.0.0",
   "private": true,
-  "description": "Node.js-powered local server for the Web Systems Project site.",
+  "description": "PHP/MySQL-powered local backend for the Web Systems Project site.",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node server.js"
+    "start": "php -S 127.0.0.1:3000",
+    "dev": "php -S 127.0.0.1:3000"
   },
   "engines": {
     "node": ">=18"

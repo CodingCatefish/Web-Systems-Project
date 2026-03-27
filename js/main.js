@@ -8,6 +8,7 @@
   var bagOverlayEl = null;
   var bagOpenTrigger = null;
   var bagCloseTimer = null;
+  var sessionRequest = null;
 
   function setActiveNavLink() {
     var current = window.location.pathname.split('/').pop() || 'index.html';
@@ -24,6 +25,375 @@
     var year = new Date().getFullYear();
     document.querySelectorAll('.js-year').forEach(function (el) {
       el.textContent = year;
+    });
+  }
+
+  function isValidEmail(value) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || ''));
+  }
+
+  function getFieldErrorElement(input) {
+    if (!input) return null;
+
+    var describedBy = input.getAttribute('aria-describedby') || '';
+    var ids = describedBy.split(/\s+/).filter(Boolean);
+
+    for (var i = 0; i < ids.length; i++) {
+      if (/-error$/.test(ids[i])) {
+        return document.getElementById(ids[i]);
+      }
+    }
+
+    return null;
+  }
+
+  function setFieldError(input, errorEl, message) {
+    if (errorEl) {
+      errorEl.textContent = message || '';
+      errorEl.hidden = !message;
+    }
+
+    if (input) {
+      if (message) {
+        input.setAttribute('aria-invalid', 'true');
+      } else {
+        input.removeAttribute('aria-invalid');
+      }
+    }
+  }
+
+  function clearFormState(form, summaryEl, statusEl) {
+    if (summaryEl) {
+      summaryEl.textContent = '';
+      summaryEl.hidden = true;
+    }
+
+    if (statusEl) {
+      statusEl.textContent = '';
+    }
+
+    if (!form) return;
+
+    form.querySelectorAll('[aria-invalid="true"]').forEach(function (input) {
+      input.removeAttribute('aria-invalid');
+    });
+
+    form.querySelectorAll('.field-error').forEach(function (errorEl) {
+      errorEl.textContent = '';
+      errorEl.hidden = true;
+    });
+  }
+
+  function applyValidationErrors(errors, summaryEl, statusEl) {
+    if (!errors.length) return;
+
+    errors.forEach(function (entry) {
+      setFieldError(entry.input || null, entry.errorEl || getFieldErrorElement(entry.input), entry.message);
+    });
+
+    if (summaryEl) {
+      summaryEl.textContent = 'Please correct the highlighted fields.';
+      summaryEl.hidden = false;
+    }
+
+    if (statusEl) {
+      statusEl.textContent = 'Please correct the highlighted fields.';
+    }
+
+    var firstInvalid = errors[0].input;
+    if (firstInvalid && typeof firstInvalid.focus === 'function') {
+      firstInvalid.focus();
+    }
+  }
+
+  function setSummaryMessage(summaryEl, message) {
+    if (!summaryEl) return;
+
+    summaryEl.textContent = message || '';
+    summaryEl.hidden = !message;
+  }
+
+  function focusSummary(summaryEl) {
+    if (!summaryEl || summaryEl.hidden) return;
+    summaryEl.setAttribute('tabindex', '-1');
+    summaryEl.focus();
+  }
+
+  function clearAuthQueryParams() {
+    if (!window.history || typeof window.history.replaceState !== 'function') {
+      return;
+    }
+
+    var url = new URL(window.location.href);
+    ['auth_error', 'auth_notice', 'email', 'name'].forEach(function (key) {
+      url.searchParams.delete(key);
+    });
+
+    window.history.replaceState({}, document.title, url.pathname + (url.search ? url.search : '') + url.hash);
+  }
+
+  function getAuthFeedbackConfig(formId) {
+    var configs = {
+      'login-form': {
+        valueFields: {
+          email: '#login-email'
+        },
+        errors: {
+          missing_login_fields: {
+            summary: 'Email and password are required.',
+            fields: [
+              { selector: '#login-email', message: 'Email address is required.' },
+              { selector: '#login-password', message: 'Password is required.' }
+            ]
+          },
+          invalid_email: {
+            summary: 'Enter a valid email address.',
+            fields: [
+              { selector: '#login-email', message: 'Enter a valid email address.' }
+            ]
+          },
+          invalid_password_length: {
+            summary: 'Enter a password between 8 and 72 characters.',
+            fields: [
+              { selector: '#login-password', message: 'Enter a password between 8 and 72 characters.' }
+            ]
+          },
+          invalid_credentials: {
+            summary: 'Invalid email or password.'
+          },
+          csrf_invalid_origin: {
+            summary: 'Your session could not be verified. Please try signing in again from this page.'
+          },
+          server_error: {
+            summary: 'We could not sign you in right now. Please try again.'
+          }
+        },
+        notices: {
+          account_created: 'Account created. You can sign in now.'
+        }
+      },
+      'signup-form': {
+        valueFields: {
+          name: '#name',
+          email: '#signup-email'
+        },
+        errors: {
+          missing_signup_fields: {
+            summary: 'Please complete all required fields.',
+            fields: [
+              { selector: '#name', message: 'Full name is required.' },
+              { selector: '#signup-email', message: 'Email address is required.' },
+              { selector: '#signup-password', message: 'Password is required.' },
+              { selector: '#signup-confirm-password', message: 'Please confirm your password.' }
+            ]
+          },
+          invalid_email: {
+            summary: 'Enter a valid email address.',
+            fields: [
+              { selector: '#signup-email', message: 'Enter a valid email address.' }
+            ]
+          },
+          signup_name_too_long: {
+            summary: 'Name must be 80 characters or fewer.',
+            fields: [
+              { selector: '#name', message: 'Name must be 80 characters or fewer.' }
+            ]
+          },
+          invalid_password_length: {
+            summary: 'Use a password between 8 and 72 characters.',
+            fields: [
+              { selector: '#signup-password', message: 'Use a password between 8 and 72 characters.' }
+            ]
+          },
+          password_mismatch: {
+            summary: 'Password confirmation must match.',
+            fields: [
+              { selector: '#signup-confirm-password', message: 'Password confirmation must match.' }
+            ]
+          },
+          duplicate_email: {
+            summary: 'An account with this email already exists.',
+            fields: [
+              { selector: '#signup-email', message: 'An account with this email already exists.' }
+            ]
+          },
+          csrf_invalid_origin: {
+            summary: 'Your session could not be verified. Please submit the form again from this page.'
+          },
+          server_error: {
+            summary: 'We could not create your account right now. Please try again.'
+          }
+        },
+        notices: {}
+      }
+    };
+
+    return configs[formId] || null;
+  }
+
+  function applyAuthFeedback(form, summary, status, config) {
+    if (!form || !config) return;
+
+    var params = new URLSearchParams(window.location.search);
+    var errorCode = params.get('auth_error') || '';
+    var noticeCode = params.get('auth_notice') || '';
+    var shouldClear = false;
+
+    Object.keys(config.valueFields || {}).forEach(function (paramName) {
+      var selector = config.valueFields[paramName];
+      var input = form.querySelector(selector);
+      var value = params.get(paramName);
+
+      if (input && value) {
+        input.value = value;
+        shouldClear = true;
+      }
+    });
+
+    if (noticeCode && config.notices && config.notices[noticeCode]) {
+      if (status) {
+        status.textContent = config.notices[noticeCode];
+      }
+      shouldClear = true;
+    }
+
+    if (errorCode && config.errors && config.errors[errorCode]) {
+      var entry = config.errors[errorCode];
+      var errors = (entry.fields || []).map(function (field) {
+        return {
+          input: form.querySelector(field.selector),
+          message: field.message
+        };
+      });
+
+      if (errors.length) {
+        applyValidationErrors(errors, summary, status);
+      }
+
+      if (entry.summary) {
+        setSummaryMessage(summary, entry.summary);
+        if (status) {
+          status.textContent = entry.summary;
+        }
+      }
+
+      if (!errors.length) {
+        focusSummary(summary);
+      }
+
+      shouldClear = true;
+    }
+
+    if (shouldClear) {
+      clearAuthQueryParams();
+    }
+  }
+
+  function getSessionInfo() {
+    if (sessionRequest) {
+      return sessionRequest;
+    }
+
+    sessionRequest = fetch('api/session.php', {
+      credentials: 'same-origin',
+      headers: {
+        Accept: 'application/json'
+      }
+    }).then(function (response) {
+      if (!response.ok) {
+        throw new Error('Failed to load session state.');
+      }
+
+      return response.json();
+    }).catch(function () {
+      return null;
+    });
+
+    return sessionRequest;
+  }
+
+  function getDisplayName(name) {
+    var trimmed = String(name || '').trim();
+    if (!trimmed) return 'Account';
+
+    return trimmed.split(/\s+/)[0];
+  }
+
+  function removeDynamicLogoutControl(nav) {
+    if (!nav) return;
+
+    var existing = nav.querySelector('.nav-session-form');
+    if (existing) {
+      existing.remove();
+    }
+  }
+
+  function ensureDynamicLogoutControl(nav) {
+    if (!nav) return null;
+
+    var existing = nav.querySelector('.nav-session-form');
+    if (existing) {
+      return existing;
+    }
+
+    var form = document.createElement('form');
+    var button = document.createElement('button');
+    var cartLink = nav.querySelector('.cart-link');
+
+    form.className = 'nav-inline-form nav-session-form';
+    form.method = 'post';
+    form.action = 'logout.php';
+
+    button.type = 'submit';
+    button.className = 'nav-link nav-session-button';
+    button.textContent = 'Logout';
+    form.appendChild(button);
+
+    if (cartLink) {
+      nav.insertBefore(form, cartLink);
+    } else {
+      nav.appendChild(form);
+    }
+
+    return form;
+  }
+
+  function initSessionNav() {
+    var accountLink = document.getElementById('account-nav-link');
+    var adminLink = document.getElementById('admin-nav-link');
+
+    if (!accountLink && !adminLink) return;
+
+    var nav = accountLink ? accountLink.parentElement : (adminLink ? adminLink.parentElement : null);
+    if (!nav) return;
+
+    getSessionInfo().then(function (user) {
+      if (!user) {
+        if (accountLink) {
+          accountLink.textContent = 'Login';
+          accountLink.href = 'login.html';
+          accountLink.removeAttribute('title');
+        }
+
+        if (adminLink) {
+          adminLink.style.display = 'none';
+        }
+
+        removeDynamicLogoutControl(nav);
+        return;
+      }
+
+      if (accountLink) {
+        accountLink.textContent = getDisplayName(user.name);
+        accountLink.href = user.role === 'admin' ? 'admin.php' : 'index.html';
+        accountLink.title = user.email ? ('Signed in as ' + user.email) : 'Signed in';
+      }
+
+      if (adminLink) {
+        adminLink.style.display = user.role === 'admin' ? '' : 'none';
+      }
+
+      ensureDynamicLogoutControl(nav);
     });
   }
 
@@ -499,6 +869,108 @@
     });
   }
 
+  function initPasswordToggles() {
+    document.querySelectorAll('[data-toggle-password]').forEach(function (toggle) {
+      var fieldId = toggle.getAttribute('data-toggle-password');
+      var input = fieldId ? document.getElementById(fieldId) : null;
+      if (!input) return;
+
+      toggle.addEventListener('click', function () {
+        var showPassword = input.type === 'password';
+        input.type = showPassword ? 'text' : 'password';
+        toggle.textContent = showPassword ? 'Hide' : 'Show';
+        toggle.setAttribute('aria-label', (showPassword ? 'Hide' : 'Show') + ' password');
+      });
+    });
+  }
+
+  function validateLoginForm(form) {
+    var email = form.querySelector('#login-email');
+    var password = form.querySelector('#login-password');
+    var errors = [];
+
+    if (!email.value.trim()) {
+      errors.push({ input: email, message: 'Email address is required.' });
+    } else if (!isValidEmail(email.value.trim())) {
+      errors.push({ input: email, message: 'Enter a valid email address.' });
+    }
+
+    if (!password.value) {
+      errors.push({ input: password, message: 'Password is required.' });
+    } else if (password.value.length < 8 || password.value.length > 72) {
+      errors.push({ input: password, message: 'Enter a password between 8 and 72 characters.' });
+    }
+
+    return errors;
+  }
+
+  function validateSignupForm(form) {
+    var name = form.querySelector('#name');
+    var email = form.querySelector('#signup-email');
+    var password = form.querySelector('#signup-password');
+    var confirmPassword = form.querySelector('#signup-confirm-password');
+    var errors = [];
+
+    if (!name.value.trim()) {
+      errors.push({ input: name, message: 'Full name is required.' });
+    } else if (name.value.trim().length > 80) {
+      errors.push({ input: name, message: 'Name must be 80 characters or fewer.' });
+    }
+
+    if (!email.value.trim()) {
+      errors.push({ input: email, message: 'Email address is required.' });
+    } else if (!isValidEmail(email.value.trim()) || email.value.trim().length > 254) {
+      errors.push({ input: email, message: 'Enter a valid email address.' });
+    }
+
+    if (!password.value) {
+      errors.push({ input: password, message: 'Password is required.' });
+    } else if (password.value.length < 8 || password.value.length > 72) {
+      errors.push({ input: password, message: 'Use a password between 8 and 72 characters.' });
+    }
+
+    if (!confirmPassword.value) {
+      errors.push({ input: confirmPassword, message: 'Please confirm your password.' });
+    } else if (password.value !== confirmPassword.value) {
+      errors.push({ input: confirmPassword, message: 'Password confirmation must match.' });
+    }
+
+    return errors;
+  }
+
+  function initAuthForms() {
+    [
+      { formId: 'login-form', statusId: 'login-status', validate: validateLoginForm },
+      { formId: 'signup-form', statusId: 'signup-status', validate: validateSignupForm }
+    ].forEach(function (config) {
+      var form = document.getElementById(config.formId);
+      if (!form) return;
+
+      var summary = form.querySelector('.form-errors-summary');
+      var status = document.getElementById(config.statusId);
+
+      form.addEventListener('input', function (event) {
+        var input = event.target;
+        clearFormState(null, summary, status);
+        setFieldError(input, getFieldErrorElement(input), '');
+      });
+
+      form.addEventListener('submit', function (event) {
+        var errors = config.validate(form);
+        clearFormState(form, summary, status);
+
+        if (!errors.length) {
+          return;
+        }
+
+        event.preventDefault();
+        applyValidationErrors(errors, summary, status);
+      });
+
+      applyAuthFeedback(form, summary, status, getAuthFeedbackConfig(config.formId));
+    });
+  }
+
   function initBookFilters() {
     var search = document.getElementById('book-search');
     var chips = document.querySelectorAll('.genre-chip');
@@ -686,62 +1158,103 @@
     var form = document.getElementById('review-form');
     var starInput = document.getElementById('star-input');
     var ratingField = document.getElementById('review-rating');
+    var summary = document.getElementById('review-form-errors');
+    var status = document.getElementById('review-form-status');
+    var ratingError = document.getElementById('review-rating-error');
 
     if (!form || !starInput) return;
 
     var stars = starInput.querySelectorAll('.star-btn');
+    var ratingInputs = starInput.querySelectorAll('input[name="rating"]');
+    var ratingLabels = starInput.querySelectorAll('.rating-star');
+
+    function getSelectedRating() {
+      if (ratingField) {
+        return parseInt(ratingField.value, 10) || 0;
+      }
+
+      var checkedInput = starInput.querySelector('input[name="rating"]:checked');
+      return checkedInput ? (parseInt(checkedInput.value, 10) || 0) : 0;
+    }
+
+    function setSelectedRating(value) {
+      if (ratingField) {
+        ratingField.value = String(value);
+      }
+
+      ratingInputs.forEach(function (input) {
+        input.checked = parseInt(input.value, 10) === value;
+      });
+
+      ratingLabels.forEach(function (label) {
+        var inputId = label.getAttribute('for');
+        var input = inputId ? document.getElementById(inputId) : null;
+        var inputValue = input ? (parseInt(input.value, 10) || 0) : 0;
+        label.classList.toggle('active', inputValue > 0 && inputValue <= value);
+      });
+
+      stars.forEach(function (star) {
+        var starValue = parseInt(star.getAttribute('data-value'), 10) || 0;
+        star.classList.toggle('active', starValue > 0 && starValue <= value);
+      });
+    }
 
     stars.forEach(function (btn) {
       btn.addEventListener('click', function () {
         var val = parseInt(btn.getAttribute('data-value'), 10);
-        ratingField.value = val;
-        stars.forEach(function (s) {
-          var sv = parseInt(s.getAttribute('data-value'), 10);
-          if (sv <= val) {
-            s.classList.add('active');
-          } else {
-            s.classList.remove('active');
-          }
-        });
+        setSelectedRating(val);
+        setFieldError(null, ratingError, '');
       });
 
       btn.addEventListener('mouseenter', function () {
         var val = parseInt(btn.getAttribute('data-value'), 10);
-        stars.forEach(function (s) {
-          var sv = parseInt(s.getAttribute('data-value'), 10);
-          if (sv <= val) {
-            s.classList.add('active');
-          } else {
-            s.classList.remove('active');
-          }
-        });
+        setSelectedRating(val);
+      });
+    });
+
+    ratingInputs.forEach(function (input) {
+      input.addEventListener('change', function () {
+        setSelectedRating(parseInt(input.value, 10) || 0);
+        setFieldError(null, ratingError, '');
       });
     });
 
     starInput.addEventListener('mouseleave', function () {
-      var current = parseInt(ratingField.value, 10);
-      stars.forEach(function (s) {
-        var sv = parseInt(s.getAttribute('data-value'), 10);
-        if (sv <= current) {
-          s.classList.add('active');
-        } else {
-          s.classList.remove('active');
-        }
-      });
+      setSelectedRating(getSelectedRating());
     });
 
     form.addEventListener('submit', function (e) {
       e.preventDefault();
 
-      var name = document.getElementById('review-name').value.trim();
-      var book = document.getElementById('review-book').value.trim();
-      var rating = parseInt(ratingField.value, 10);
-      var text = document.getElementById('review-text').value.trim();
+      var nameInput = document.getElementById('review-name');
+      var bookInput = document.getElementById('review-book');
+      var textInput = document.getElementById('review-text');
+      var name = nameInput.value.trim();
+      var book = bookInput.value.trim();
+      var rating = getSelectedRating();
+      var text = textInput.value.trim();
+      var errors = [];
 
-      if (!name || !book || !text) return;
+      clearFormState(form, summary, status);
+
+      if (!name) {
+        errors.push({ input: nameInput, message: 'Your name is required.' });
+      }
+
+      if (!book) {
+        errors.push({ input: bookInput, message: 'Book title is required.' });
+      }
 
       if (rating < 1) {
-        showToast('Please select a star rating');
+        errors.push({ errorEl: ratingError, message: 'Please choose a rating from 1 to 5 stars.' });
+      }
+
+      if (!text) {
+        errors.push({ input: textInput, message: 'Please enter your review.' });
+      }
+
+      if (errors.length) {
+        applyValidationErrors(errors, summary, status);
         return;
       }
 
@@ -753,13 +1266,16 @@
       saveReview({ name: name, book: book, rating: rating, text: text, date: dateStr });
 
       form.reset();
-      ratingField.value = '0';
-      stars.forEach(function (s) { s.classList.remove('active'); });
+      setSelectedRating(0);
+      if (status) {
+        status.textContent = 'Review submitted for this browser.';
+      }
 
-      showToast('Review submitted — thank you!');
+      showToast('Review submitted. Thank you!');
       renderReviews();
     });
 
+    setSelectedRating(getSelectedRating());
     renderReviews();
   }
 
@@ -783,8 +1299,11 @@
 
   document.addEventListener('DOMContentLoaded', function () {
     setActiveNavLink();
+    initSessionNav();
     updateYear();
     updateCartCount();
+    initPasswordToggles();
+    initAuthForms();
     initBagOverlay();
     initCartButtons();
     initBookFilters();

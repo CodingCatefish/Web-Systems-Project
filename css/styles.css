@@ -46,6 +46,24 @@ a {
   text-decoration: none;
 }
 
+.skip-link {
+  position: absolute;
+  top: 0.85rem;
+  left: 0.85rem;
+  z-index: 100;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-md);
+  background: var(--color-primary);
+  color: #fff;
+  font-weight: 800;
+  transform: translateY(-180%);
+  transition: transform var(--easing);
+}
+
+.skip-link:focus {
+  transform: translateY(0);
+}
+
 .site-shell {
   min-height: 100vh;
   display: flex;
@@ -112,6 +130,19 @@ a {
 .nav-link:hover,
 .nav-link.active {
   color: var(--color-primary);
+}
+
+.nav-inline-form {
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+}
+
+.nav-session-button {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font: inherit;
 }
 
 .cart-link {
@@ -968,6 +999,56 @@ main {
   border-top: 1px solid rgba(255, 255, 255, 0.16);
   text-align: center;
   font-size: 0.88rem;
+}
+
+.form-status {
+  min-height: 1.4rem;
+  margin-bottom: 0.75rem;
+  color: var(--color-primary);
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.form-errors-summary {
+  margin-bottom: 1rem;
+  padding: 0.8rem 0.95rem;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(153, 27, 27, 0.18);
+  background: rgba(153, 27, 27, 0.08);
+  color: #991b1b;
+}
+
+.field-error {
+  margin: 0.45rem 0 0;
+  color: #991b1b;
+  font-size: 0.88rem;
+}
+
+.helper {
+  margin: 0.45rem 0 0;
+  color: var(--color-muted);
+  font-size: 0.88rem;
+}
+
+.password-field {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.password-field input {
+  flex: 1 1 auto;
+}
+
+.password-toggle {
+  border: 1px solid rgba(26, 32, 44, 0.16);
+  background: #fff;
+  color: var(--color-primary);
+  border-radius: 10px;
+  padding: 0.6rem 0.8rem;
+  font-size: 0.85rem;
+  font-weight: 800;
+  cursor: pointer;
 }
 
 .reveal {
