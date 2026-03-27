@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login | Pagemark</title>
-    <link rel="stylesheet" href="css/styles.css" />
+    <link rel="stylesheet" href="css/styles.css">
 </head>
 <body class="auth-page">
     <a href="#main-content" class="skip-link">Skip to main content</a>
@@ -14,10 +14,10 @@
             <h1>Pagemark <span>Login</span></h1>
         </div>
         <p class="auth-subtitle">Sign in to access your account and manage your books.</p>
-        <p class="auth-notice">Demo mode: sign-in is handled in this browser only. Use an account created from the sign-up page.</p>
+        <p class="auth-notice">Sign-in is submitted to the server and protected with a session cookie. Use an account created from the sign-up page.</p>
 
         <div class="form-status" id="login-status" aria-live="polite"></div>
-        <form class="auth-form" id="login-form" novalidate>
+        <form class="auth-form" id="login-form" action="/login" method="post" novalidate>
             <div class="form-errors-summary" id="login-errors" role="alert" hidden></div>
             <div class="field">
                 <label for="login-email">Email address</label>
@@ -52,11 +52,7 @@
                 <p class="field-error" id="login-password-error" hidden></p>
             </div>
 
-            <div class="actions">
-                <label class="remember">
-                    <input type="checkbox" name="remember">
-                    Remember me
-                </label>
+            <div class="actions auth-actions-single">
                 <span class="forgot">
                     <a href="signup.html">Need an account first?</a>
                 </span>

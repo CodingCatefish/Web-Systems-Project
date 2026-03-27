@@ -24,9 +24,11 @@ const DB_CONFIG = {
 const pool = mysql.createPool(DB_CONFIG);
 const sessions = new Map();
 
+const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || 'admin@pagemark.local').toLowerCase();
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'Admin123!';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || (IS_PRODUCTION ? '' : 'Admin123!');
 const SESSION_MAX_AGE_SECONDS = 60 * 60 * 12;
+const SESSION_MAX_AGE_MS = SESSION_MAX_AGE_SECONDS * 1000;
 
 const MIME_TYPES = {
   '.css': 'text/css; charset=utf-8',
@@ -43,7 +45,39 @@ const MIME_TYPES = {
   '.webp': 'image/webp'
 };
 
-function sendFile(filePath, response) {
+function applySecurityHeaders(response) {
+  response.setHeader('Content-Security-Policy', [
+    "default-src 'self'",
+    "script-src 'self'",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "img-src 'self' data: https://picsum.photos https://fastly.picsum.photos",
+    "font-src 'self' https://fonts.gstatic.com",
+    "connect-src 'self'",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "frame-ancestors 'none'"
+  ].join('; '));
+  response.setHeader('Permissions-Policy', 'camera=(), geolocation=(), microphone=()');
+  response.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  response.setHeader('X-Content-Type-Options', 'nosniff');
+}
+
+function sendText(response, statusCode, message, extraHeaders) {
+  response.writeHead(statusCode, Object.assign({
+    'Content-Type': 'text/plain; charset=utf-8'
+  }, extraHeaders || {}));
+  response.end(message);
+}
+
+function sendJson(response, statusCode, payload, extraHeaders) {
+  response.writeHead(statusCode, Object.assign({
+    'Content-Type': 'application/json; charset=utf-8'
+  }, extraHeaders || {}));
+  response.end(JSON.stringify(payload));
+}
+
+function sendFile(filePath, response, request, extraHeaders) {
   const extension = path.extname(filePath).toLowerCase();
   const contentType = MIME_TYPES[extension] || 'application/octet-stream';
 
@@ -54,19 +88,25 @@ function sendFile(filePath, response) {
         return;
       }
 
-      response.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
-      response.end('Internal Server Error');
+      sendText(response, 500, 'Internal Server Error');
       return;
     }
 
-    response.writeHead(200, { 'Content-Type': contentType });
+    response.writeHead(200, Object.assign({
+      'Content-Type': contentType
+    }, extraHeaders || {}));
+
+    if (request.method === 'HEAD') {
+      response.end();
+      return;
+    }
+
     response.end(content);
   });
 }
 
 function sendNotFound(response) {
-  response.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
-  response.end('404 Not Found');
+  sendText(response, 404, '404 Not Found');
 }
 
 function sendRedirect(response, location) {
@@ -91,6 +131,17 @@ function parseCookies(request) {
 
 function createSession(response, user) {
   const sessionId = crypto.randomBytes(24).toString('hex');
+  const cookieParts = [
+    `session_id=${sessionId}`,
+    'Path=/',
+    'HttpOnly',
+    'SameSite=Lax',
+    `Max-Age=${SESSION_MAX_AGE_SECONDS}`
+  ];
+
+  if (IS_PRODUCTION) {
+    cookieParts.push('Secure');
+  }
 
   sessions.set(sessionId, {
     id: user.id,
@@ -101,24 +152,41 @@ function createSession(response, user) {
 
   response.setHeader(
     'Set-Cookie',
-    `session_id=${sessionId}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${SESSION_MAX_AGE_SECONDS}`
+    cookieParts.join('; ')
   );
 }
 
-function getSession(request) {
+function getExpiredSessionId(request) {
   const cookies = parseCookies(request);
-  const sessionId = cookies.session_id;
+  return cookies.session_id;
+}
+
+function getSession(request, response) {
+  const sessionId = getExpiredSessionId(request);
 
   if (!sessionId) {
     return null;
   }
 
-  return sessions.get(sessionId) || null;
+  const session = sessions.get(sessionId) || null;
+
+  if (!session) {
+    return null;
+  }
+
+  if (Date.now() - session.createdAt > SESSION_MAX_AGE_MS) {
+    sessions.delete(sessionId);
+    if (response) {
+      response.setHeader('Set-Cookie', 'session_id=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0');
+    }
+    return null;
+  }
+
+  return session;
 }
 
 function clearSession(request, response) {
-  const cookies = parseCookies(request);
-  const sessionId = cookies.session_id;
+  const sessionId = getExpiredSessionId(request);
 
   if (sessionId) {
     sessions.delete(sessionId);
@@ -135,6 +203,40 @@ function resolveRequestPath(urlPath) {
   }
 
   return path.join(ROOT_DIR, relativePath);
+}
+
+function isValidEmail(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+function validateSignupInput(name, email, password) {
+  if (!name || !email || !password) {
+    return 'Name, email and password are required.';
+  }
+
+  if (!isValidEmail(email) || email.length > 254) {
+    return 'Enter a valid email address.';
+  }
+
+  if (name.length > 80) {
+    return 'Name must be 80 characters or fewer.';
+  }
+
+  if (password.length < 8 || password.length > 72) {
+    return 'Use a password between 8 and 72 characters.';
+  }
+
+  return '';
+}
+
+function logRequest(request, response, startedAt, routePath) {
+  response.on('finish', () => {
+    console.info('%s %s -> %s (%dms)', request.method, routePath, response.statusCode, Date.now() - startedAt);
+  });
+}
+
+function logServerError(context, routePath, error) {
+  console.error('[%s] %s: %s', context, routePath, error && error.message ? error.message : 'Unknown error');
 }
 
 function parseFormBody(request) {
@@ -173,8 +275,17 @@ async function handleLogin(request, response) {
     const password = formData.password || '';
 
     if (!email || !password) {
-      response.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' });
-      response.end('Email and password are required.');
+      sendText(response, 400, 'Email and password are required.');
+      return;
+    }
+
+    if (!isValidEmail(email)) {
+      sendText(response, 400, 'Enter a valid email address.');
+      return;
+    }
+
+    if (password.length < 8 || password.length > 72) {
+      sendText(response, 400, 'Enter a password between 8 and 72 characters.');
       return;
     }
 
@@ -197,8 +308,7 @@ async function handleLogin(request, response) {
       );
 
       if (users.length === 0) {
-        response.writeHead(401, { 'Content-Type': 'text/plain; charset=utf-8' });
-        response.end('Invalid email or password.');
+        sendText(response, 401, 'Invalid email or password.');
         return;
       }
 
@@ -206,8 +316,7 @@ async function handleLogin(request, response) {
       const passwordMatches = await bcrypt.compare(password, user.password_hash);
 
       if (!passwordMatches) {
-        response.writeHead(401, { 'Content-Type': 'text/plain; charset=utf-8' });
-        response.end('Invalid email or password.');
+        sendText(response, 401, 'Invalid email or password.');
         return;
       }
 
@@ -221,14 +330,13 @@ async function handleLogin(request, response) {
       connection.release();
     }
   } catch (error) {
-    console.error('Error handling login:', error);
-    response.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
-    response.end('Internal Server Error');
+    logServerError('login', request.url, error);
+    sendText(response, 500, 'Internal Server Error');
   }
 }
 
 function handleAdminPage(request, response) {
-  const session = getSession(request);
+  const session = getSession(request, response);
 
   if (!session || session.role !== 'admin') {
     sendRedirect(response, '/login.html');
@@ -236,7 +344,7 @@ function handleAdminPage(request, response) {
   }
 
   const adminPath = path.join(ROOT_DIR, 'admin.html');
-  sendFile(adminPath, response);
+  sendFile(adminPath, response, request, { 'Cache-Control': 'no-store' });
 }
 
 function handleLogout(request, response) {
@@ -245,22 +353,20 @@ function handleLogout(request, response) {
 }
 
 function handleSessionInfo(request, response) {
-  const session = getSession(request);
-
-  response.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-  response.end(JSON.stringify(session || null));
+  const session = getSession(request, response);
+  sendJson(response, 200, session || null, { 'Cache-Control': 'no-store' });
 }
 
 async function handleSignup(request, response) {
   try {
     const formData = await parseFormBody(request);
     const name = (formData.name || '').trim();
-    const email = (formData.email || '').trim();
+    const email = (formData.email || '').trim().toLowerCase();
     const password = formData.password || '';
+    const validationError = validateSignupInput(name, email, password);
 
-    if (!name || !email || !password) {
-      response.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' });
-      response.end('Name, email and password are required.');
+    if (validationError) {
+      sendText(response, 400, validationError);
       return;
     }
 
@@ -273,8 +379,7 @@ async function handleSignup(request, response) {
       );
 
       if (existing.length > 0) {
-        response.writeHead(409, { 'Content-Type': 'text/plain; charset=utf-8' });
-        response.end('An account with this email already exists.');
+        sendText(response, 409, 'An account with this email already exists.');
         return;
       }
 
@@ -290,15 +395,18 @@ async function handleSignup(request, response) {
       connection.release();
     }
   } catch (error) {
-    console.error('Error handling signup:', error);
-    response.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
-    response.end('Internal Server Error');
+    logServerError('signup', request.url, error);
+    sendText(response, 500, 'Internal Server Error');
   }
 }
 
 const server = http.createServer((request, response) => {
   const requestUrl = new URL(request.url, `http://${request.headers.host || HOST}`);
   const routePath = requestUrl.pathname === '/' ? '/index.html' : requestUrl.pathname;
+  const startedAt = Date.now();
+
+  applySecurityHeaders(response);
+  logRequest(request, response, startedAt, routePath);
 
   if (request.method === 'POST' && routePath === '/login') {
     handleLogin(request, response);
@@ -326,16 +434,14 @@ const server = http.createServer((request, response) => {
   }
 
   if (request.method !== 'GET' && request.method !== 'HEAD') {
-    response.writeHead(405, { 'Content-Type': 'text/plain; charset=utf-8' });
-    response.end('Method Not Allowed');
+    sendText(response, 405, 'Method Not Allowed');
     return;
   }
 
   const filePath = resolveRequestPath(routePath);
 
   if (!filePath) {
-    response.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' });
-    response.end('Forbidden');
+    sendText(response, 403, 'Forbidden');
     return;
   }
 
@@ -350,10 +456,13 @@ const server = http.createServer((request, response) => {
       return;
     }
 
-    sendFile(filePath, response);
+    sendFile(filePath, response, request);
   });
 });
 
 server.listen(PORT, HOST, () => {
+  if (IS_PRODUCTION && !process.env.ADMIN_PASSWORD) {
+    console.warn('ADMIN_PASSWORD is not configured. The built-in admin login is disabled in production.');
+  }
   console.log(`The Inkwell is running at http://${HOST}:${PORT}`);
 });

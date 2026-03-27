@@ -5,6 +5,7 @@
 
   var CART_ITEMS_KEY = 'pagemark_cart_items';
   var MOCK_USERS_KEY = 'pagemark_mock_users';
+  var MOCK_SESSION_KEY = 'pagemark_mock_session';
   var adminLink = null;
 
   var cartDrawer = null;
@@ -37,13 +38,33 @@
       var raw = storage.getItem(key);
       return raw ? JSON.parse(raw) : fallback;
     } catch (error) {
-      storage.removeItem(key);
+      safeRemoveItem(storage, key);
       return fallback;
     }
   }
 
   function writeJson(storage, key, value) {
-    storage.setItem(key, JSON.stringify(value));
+    try {
+      storage.setItem(key, JSON.stringify(value));
+      return true;
+    } catch (error) {
+      logClientIssue('storage-write', error);
+      return false;
+    }
+  }
+
+  function safeRemoveItem(storage, key) {
+    try {
+      storage.removeItem(key);
+    } catch (error) {
+      logClientIssue('storage-remove', error);
+    }
+  }
+
+  function logClientIssue(context, error) {
+    if (window.console && typeof window.console.warn === 'function') {
+      window.console.warn('[pagemark]', context, error && error.message ? error.message : error);
+    }
   }
 
   function formatCurrency(value) {
@@ -75,13 +96,18 @@
 
     try {
       var response = await fetch('/api/session');
+      if (!response.ok) {
+        throw new Error('Session request failed');
+      }
+
       var session = await response.json();
+      adminLink.hidden = true;
 
       if (session && session.role === 'admin') {
-        adminLink.style.display = 'inline-flex';
+        adminLink.hidden = false;
       }
     } catch (error) {
-      adminLink.style.display = 'none';
+      adminLink.hidden = true;
     }
   }
 
@@ -161,6 +187,7 @@
 
     summary.hidden = true;
     summary.textContent = '';
+    summary.removeAttribute('tabindex');
   }
 
   function showFormSummary(form, messages) {
@@ -175,15 +202,6 @@
 
   function validateEmail(value) {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
-  }
-
-  function getMockUsers() {
-    var users = readJson(localStorage, MOCK_USERS_KEY, []);
-    return Array.isArray(users) ? users : [];
-  }
-
-  function saveMockUsers(users) {
-    writeJson(localStorage, MOCK_USERS_KEY, users);
   }
 
   function slugify(value) {
@@ -279,9 +297,16 @@
   }
 
   function saveCartItems(items) {
-    writeJson(sessionStorage, CART_ITEMS_KEY, items);
+    if (!writeJson(sessionStorage, CART_ITEMS_KEY, items)) {
+      if (cartStatusNode) {
+        setStatus(cartStatusNode, 'Your browser blocked saving bag updates. Check storage settings and try again.', 'error');
+      }
+      return false;
+    }
+
     updateCartCount();
     renderCartDrawer();
+    return true;
   }
 
   function cartItemCount(items) {
@@ -341,11 +366,11 @@
       });
     }
 
-    saveCartItems(items);
+    return saveCartItems(items);
   }
 
   function removeCartItem(id) {
-    saveCartItems(getCartItems().filter(function (item) {
+    return saveCartItems(getCartItems().filter(function (item) {
       return item.id !== id;
     }));
   }
@@ -404,9 +429,10 @@
       if (!removeButton) return;
 
       var title = removeButton.getAttribute('data-remove-title') || 'Item';
-      removeCartItem(removeButton.getAttribute('data-remove-id'));
-      setStatus(cartStatusNode, '"' + title + '" removed from your bag.', 'success');
-      showToast('Removed "' + title + '" from bag');
+      if (removeCartItem(removeButton.getAttribute('data-remove-id'))) {
+        setStatus(cartStatusNode, '"' + title + '" removed from your bag.', 'success');
+        showToast('Removed "' + title + '" from bag');
+      }
     });
 
     cartCheckoutButton.addEventListener('click', function () {
@@ -416,7 +442,11 @@
         return;
       }
 
-      saveCartItems([]);
+      if (!saveCartItems([])) {
+        setStatus(cartStatusNode, 'Checkout could not clear your bag because browser storage is unavailable.', 'error');
+        return;
+      }
+
       setStatus(cartStatusNode, 'Mock checkout complete. No real order was placed.', 'success');
       showToast('Mock checkout complete');
     });
@@ -544,11 +574,10 @@
       button.setAttribute('aria-label', 'Add ' + book.title + ' to bag');
 
       button.addEventListener('click', function () {
-        addToCart(book);
-        if (cartStatusNode) {
+        if (addToCart(book) && cartStatusNode) {
           setStatus(cartStatusNode, '"' + book.title + '" added to your bag.', 'success');
+          showToast('Added "' + book.title + '" to bag');
         }
-        showToast('Added "' + book.title + '" to bag');
       });
     });
 
@@ -676,17 +705,19 @@
   ];
 
   function getReviews() {
-    var reviews = readJson(localStorage, REVIEWS_KEY, defaultReviews);
-    if (!localStorage.getItem(REVIEWS_KEY)) {
-      writeJson(localStorage, REVIEWS_KEY, defaultReviews);
+    var reviews = readJson(localStorage, REVIEWS_KEY, null);
+    if (Array.isArray(reviews)) {
+      return reviews;
     }
-    return Array.isArray(reviews) ? reviews : defaultReviews.slice();
+
+    writeJson(localStorage, REVIEWS_KEY, defaultReviews);
+    return defaultReviews.slice();
   }
 
   function saveReview(review) {
     var reviews = getReviews();
     reviews.unshift(review);
-    writeJson(localStorage, REVIEWS_KEY, reviews);
+    return writeJson(localStorage, REVIEWS_KEY, reviews);
   }
 
   function renderStars(rating) {
@@ -829,13 +860,17 @@
         String(today.getMonth() + 1).padStart(2, '0') + '-' +
         String(today.getDate()).padStart(2, '0');
 
-      saveReview({
+      if (!saveReview({
         name: name,
         book: book,
         rating: rating,
         text: text,
         date: dateValue
-      });
+      })) {
+        showFormSummary(form, ['Your review could not be saved because browser storage is unavailable.']);
+        setStatus(status, 'Your review could not be saved because browser storage is unavailable.', 'error');
+        return;
+      }
 
       form.reset();
       updateRatingDisplay();
@@ -861,6 +896,82 @@
     });
   }
 
+  function clearLegacyAuthData() {
+    safeRemoveItem(localStorage, MOCK_USERS_KEY);
+    safeRemoveItem(sessionStorage, MOCK_SESSION_KEY);
+  }
+
+  function setFormBusy(form, isBusy) {
+    form.setAttribute('aria-busy', String(isBusy));
+    qsa('button, input[type="submit"]', form).forEach(function (control) {
+      control.disabled = isBusy;
+    });
+  }
+
+  function applyServerErrorToField(message, field, fallbackMessage) {
+    if (!field || !message) return false;
+
+    setFieldError(field, fallbackMessage || message);
+    return true;
+  }
+
+  function showServerFormError(form, status, message, handlers) {
+    var handled = false;
+
+    (handlers || []).forEach(function (handler) {
+      if (!handled && handler.test(message)) {
+        handled = handler.apply(message);
+      }
+    });
+
+    showFormSummary(form, [message]);
+    setStatus(status, message, 'error');
+  }
+
+  async function submitAuthForm(form, status, successMessage, serverErrorHandlers) {
+    if (!window.fetch || !window.FormData || !window.URLSearchParams) {
+      form.submit();
+      return true;
+    }
+
+    setFormBusy(form, true);
+
+    try {
+      var response = await fetch(form.action, {
+        method: (form.method || 'POST').toUpperCase(),
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
+        },
+        body: new URLSearchParams(new FormData(form)).toString(),
+        redirect: 'follow'
+      });
+
+      if (response.redirected) {
+        setStatus(status, successMessage, 'success');
+        window.setTimeout(function () {
+          window.location.href = response.url;
+        }, 250);
+        return true;
+      }
+
+      if (!response.ok) {
+        var message = (await response.text()).trim() || 'We could not complete your request. Please try again.';
+        showServerFormError(form, status, message, serverErrorHandlers);
+        return false;
+      }
+
+      setStatus(status, successMessage, 'success');
+      return true;
+    } catch (error) {
+      logClientIssue('auth-submit', error);
+      showFormSummary(form, ['We could not reach the server. Please try again.']);
+      setStatus(status, 'We could not reach the server. Please try again.', 'error');
+      return false;
+    } finally {
+      setFormBusy(form, false);
+    }
+  }
+
   function initSignupForm() {
     var form = document.getElementById('signup-form');
     if (!form) return;
@@ -879,7 +990,7 @@
       });
     });
 
-    form.addEventListener('submit', function (event) {
+    form.addEventListener('submit', async function (event) {
       event.preventDefault();
 
       clearFormSummary(form);
@@ -891,7 +1002,6 @@
       var email = emailInput.value.trim().toLowerCase();
       var password = passwordInput.value;
       var confirmPassword = confirmInput.value;
-      var users = getMockUsers();
 
       if (!name) {
         setFieldError(nameInput, 'Enter your full name.');
@@ -901,14 +1011,11 @@
       if (!validateEmail(email)) {
         setFieldError(emailInput, 'Enter a valid email address.');
         messages.push('Enter a valid email address.');
-      } else if (users.some(function (user) { return user.email === email; })) {
-        setFieldError(emailInput, 'An account with this email already exists in this browser.');
-        messages.push('This email is already registered.');
       }
 
-      if (password.length < 8) {
-        setFieldError(passwordInput, 'Use at least 8 characters.');
-        messages.push('Use at least 8 characters for your password.');
+      if (password.length < 8 || password.length > 72) {
+        setFieldError(passwordInput, 'Use a password between 8 and 72 characters.');
+        messages.push('Use a password between 8 and 72 characters.');
       }
 
       if (confirmPassword !== password) {
@@ -922,18 +1029,34 @@
         return;
       }
 
-      users.push({
-        name: name,
-        email: email,
-        password: password
-      });
-
-      saveMockUsers(users);
-      form.reset();
-      setStatus(status, 'Account created in demo mode. Redirecting to sign in.', 'success');
-      window.setTimeout(function () {
-        window.location.href = 'login.html';
-      }, 900);
+      if (await submitAuthForm(form, status, 'Account created. Redirecting to sign in.', [
+        {
+          test: function (message) {
+            return /email/i.test(message);
+          },
+          apply: function (message) {
+            return applyServerErrorToField(message, emailInput);
+          }
+        },
+        {
+          test: function (message) {
+            return /name/i.test(message);
+          },
+          apply: function (message) {
+            return applyServerErrorToField(message, nameInput);
+          }
+        },
+        {
+          test: function (message) {
+            return /password/i.test(message);
+          },
+          apply: function (message) {
+            return applyServerErrorToField(message, passwordInput);
+          }
+        }
+      ])) {
+        form.reset();
+      }
     });
   }
 
@@ -953,7 +1076,7 @@
       });
     });
 
-    form.addEventListener('submit', function (event) {
+    form.addEventListener('submit', async function (event) {
       event.preventDefault();
 
       clearFormSummary(form);
@@ -964,29 +1087,15 @@
       var messages = [];
       var email = emailInput.value.trim().toLowerCase();
       var password = passwordInput.value;
-      var users = getMockUsers();
-      var user = users.find(function (entry) {
-        return entry.email === email;
-      });
 
       if (!validateEmail(email)) {
         setFieldError(emailInput, 'Enter a valid email address.');
         messages.push('Enter a valid email address.');
       }
 
-      if (password.length < 8) {
-        setFieldError(passwordInput, 'Enter the password you created on the sign-up page.');
-        messages.push('Enter a password with at least 8 characters.');
-      }
-
-      if (!messages.length && !user) {
-        setFieldError(emailInput, 'No demo account was found for this email.');
-        messages.push('No demo account was found for this email.');
-      }
-
-      if (!messages.length && user && user.password !== password) {
-        setFieldError(passwordInput, 'The password does not match this demo account.');
-        messages.push('The password does not match this demo account.');
+      if (password.length < 8 || password.length > 72) {
+        setFieldError(passwordInput, 'Enter a password between 8 and 72 characters.');
+        messages.push('Enter a password between 8 and 72 characters.');
       }
 
       if (messages.length) {
@@ -995,15 +1104,24 @@
         return;
       }
 
-      sessionStorage.setItem('pagemark_mock_session', JSON.stringify({
-        email: user.email,
-        name: user.name
-      }));
-
-      setStatus(status, 'Signed in. Redirecting to the home page.', 'success');
-      window.setTimeout(function () {
-        window.location.href = 'index.html';
-      }, 900);
+      await submitAuthForm(form, status, 'Signed in. Redirecting to the home page.', [
+        {
+          test: function (message) {
+            return /email/i.test(message);
+          },
+          apply: function (message) {
+            return applyServerErrorToField(message, emailInput);
+          }
+        },
+        {
+          test: function (message) {
+            return /password/i.test(message);
+          },
+          apply: function (message) {
+            return applyServerErrorToField(message, passwordInput);
+          }
+        }
+      ]);
     });
   }
 
@@ -1027,6 +1145,7 @@
 
   document.addEventListener('DOMContentLoaded', function () {
     ensureMainLandmark();
+    clearLegacyAuthData();
     adminLink = document.getElementById('admin-nav-link');
     loadSessionAndShowAdmin();
     setActiveNavLink();

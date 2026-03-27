@@ -158,6 +158,16 @@ a {
   color: var(--color-primary);
 }
 
+.nav-link-admin {
+  color: #8a5900;
+  font-weight: 800;
+}
+
+.nav-link-admin:hover,
+.nav-link-admin.active {
+  color: #6d4700;
+}
+
 .cart-link {
   border: 1px solid rgba(26, 32, 44, 0.15);
   padding: 0.5rem 0.9rem;
@@ -746,6 +756,8 @@ main {
   gap: 1.4rem;
 }
 
+.site-footer h2,
+.site-footer h3,
 .site-footer h4 {
   margin: 0 0 0.8rem;
   color: #fff;
@@ -1083,6 +1095,10 @@ main {
   gap: 0.95rem;
 }
 
+.auth-form[aria-busy='true'] {
+  cursor: progress;
+}
+
 .field {
   display: flex;
   flex-direction: column;
@@ -1134,6 +1150,10 @@ main {
 .forgot a {
   color: var(--color-primary);
   font-weight: 600;
+}
+
+.auth-actions-single {
+  justify-content: flex-end;
 }
 
 .password-field {

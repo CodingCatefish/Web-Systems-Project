@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sign Up | Pagemark</title>
-    <link rel="stylesheet" href="css/styles.css" />
+    <link rel="stylesheet" href="css/styles.css">
 </head>
 <body class="auth-page">
     <a href="#main-content" class="skip-link">Skip to main content</a>
@@ -14,10 +14,10 @@
             <h1>Create your <span>Pagemark</span> account</h1>
         </div>
         <p class="auth-subtitle">Sign up to start discovering and saving your favourite books.</p>
-        <p class="auth-notice">Demo mode: this form stores account details locally in your browser so you can test the frontend flow without a backend.</p>
+        <p class="auth-notice">This form submits to the server. Passwords are hashed on the backend before storage.</p>
 
         <div class="form-status" id="signup-status" aria-live="polite"></div>
-        <form class="auth-form" id="signup-form" novalidate>
+        <form class="auth-form" id="signup-form" action="/signup" method="post" novalidate>
             <div class="form-errors-summary" id="signup-errors" role="alert" hidden></div>
             <div class="field">
                 <label for="name">Full name</label>
