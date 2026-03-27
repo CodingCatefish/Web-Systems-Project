@@ -1,25 +1,29 @@
 # Web-Systems-Project
 
-This project now includes a minimal Node.js server so the existing static site can be run through `npm`.
+This project includes a minimal PHP/MySQL backend for authentication while preserving the existing static HTML, CSS, and JavaScript storefront.
 
 ## Run locally
 
-1. Install Node.js 18 or newer.
-2. Open the project folder in a terminal.
-3. Start the server:
+1. Install PHP 8.1+ and MySQL 8+.
+2. Create the database using `database/schema.sql`.
+3. Set environment variables if needed:
+   - `DB_HOST`
+   - `DB_NAME`
+   - `DB_USER`
+   - `DB_PASSWORD`
+   - `ADMIN_EMAIL`
+   - `ADMIN_PASSWORD` (optional temporary fallback; no default admin password is shipped)
+4. Start the PHP development server from the project root:
 
 ```bash
-npm start
+php -S 127.0.0.1:3000
 ```
 
-4. Visit `http://127.0.0.1:3000`
-
-## Available scripts
-
-- `npm start` runs the Node.js server.
-- `npm run dev` runs the same local server for development.
+5. Visit `http://127.0.0.1:3000`
 
 ## Notes
 
-- The server is defined in `server.js`.
-- It serves the existing HTML, CSS, and JavaScript files without changing the frontend structure.
+- `login.php`, `signup.php`, `logout.php`, `admin.php`, and `api/session.php` implement the current backend auth/session flow.
+- `includes/bootstrap.php` and `includes/auth.php` hold shared PHP helpers.
+- Reviews are still browser-local and are not part of this migration.
+- `server.js` remains in the repository as the previous Node implementation, but the active backend path is now PHP/MySQL for auth.
