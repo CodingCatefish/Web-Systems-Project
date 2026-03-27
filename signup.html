@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign Up | Pagemark</title>
+    <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body class="auth-page">
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+    <main id="main-content" class="auth-card">
+        <a class="auth-home-link" href="index.html">Back to home</a>
+        <div class="auth-logo">
+            <h1>Create your <span>Pagemark</span> account</h1>
+        </div>
+        <p class="auth-subtitle">Sign up to start discovering and saving your favourite books.</p>
+        <p class="auth-notice">Demo mode: this form stores account details locally in your browser so you can test the frontend flow without a backend.</p>
+
+        <div class="form-status" id="signup-status" aria-live="polite"></div>
+        <form class="auth-form" id="signup-form" novalidate>
+            <div class="form-errors-summary" id="signup-errors" role="alert" hidden></div>
+            <div class="field">
+                <label for="name">Full name</label>
+                <input
+                    type="text"
+                    id="name"
+                    name="name"
+                    placeholder="Jane Doe"
+                    autocomplete="name"
+                    aria-describedby="signup-name-error"
+                    required
+                >
+                <p class="field-error" id="signup-name-error" hidden></p>
+            </div>
+
+            <div class="field">
+                <label for="signup-email">Email address</label>
+                <input
+                    type="email"
+                    id="signup-email"
+                    name="email"
+                    placeholder="you@example.com"
+                    autocomplete="email"
+                    aria-describedby="signup-email-error"
+                    required
+                >
+                <p class="field-error" id="signup-email-error" hidden></p>
+            </div>
+
+            <div class="field">
+                <label for="signup-password">Password</label>
+                <div class="password-field">
+                    <input
+                        type="password"
+                        id="signup-password"
+                        name="password"
+                        placeholder="Create a password"
+                        minlength="8"
+                        autocomplete="new-password"
+                        aria-describedby="signup-password-help signup-password-error"
+                        required
+                    >
+                    <button class="password-toggle" type="button" data-toggle-password="signup-password" aria-label="Show password">Show</button>
+                </div>
+                <p class="helper" id="signup-password-help">Use at least 8 characters for a stronger password.</p>
+                <p class="field-error" id="signup-password-error" hidden></p>
+            </div>
+
+            <div class="field">
+                <label for="signup-confirm-password">Confirm password</label>
+                <div class="password-field">
+                    <input
+                        type="password"
+                        id="signup-confirm-password"
+                        name="confirmPassword"
+                        placeholder="Re-enter your password"
+                        minlength="8"
+                        autocomplete="new-password"
+                        aria-describedby="signup-confirm-password-error"
+                        required
+                    >
+                    <button class="password-toggle" type="button" data-toggle-password="signup-confirm-password" aria-label="Show password">Show</button>
+                </div>
+                <p class="field-error" id="signup-confirm-password-error" hidden></p>
+            </div>
+
+            <button class="auth-submit" type="submit">Sign up</button>
+        </form>
+
+        <p class="auth-footer-text">
+            Already have an account?
+            <a href="login.html">Back to login</a>
+        </p>
+    </main>
+    <script src="js/main.js"></script>
+</body>
+</html>
