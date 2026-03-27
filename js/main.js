@@ -70,18 +70,58 @@
     }
   }
 
-  async function loadSessionAndShowAdmin() {
-    if (!adminLink) return;
+  function getMockSessionName() {
+    try {
+      var raw = sessionStorage.getItem('pagemark_mock_session');
+      if (!raw) return null;
+      var mock = JSON.parse(raw);
+      if (!mock || !mock.name) return null;
+      var n = String(mock.name).trim();
+      return n || null;
+    } catch (error) {
+      return null;
+    }
+  }
 
+  async function loadSessionAndNav() {
+    var session = null;
     try {
       var response = await fetch('/api/session');
-      var session = await response.json();
+      session = await response.json();
+    } catch (error) {
+      session = null;
+    }
 
+    if (adminLink) {
       if (session && session.role === 'admin') {
         adminLink.style.display = 'inline-flex';
+      } else {
+        adminLink.style.display = 'none';
       }
-    } catch (error) {
-      adminLink.style.display = 'none';
+    }
+
+    var accountLink = document.getElementById('account-nav-link');
+    if (!accountLink) return;
+
+    var displayName = null;
+    if (session && session.role === 'admin') {
+      displayName = (session.name && String(session.name).trim()) || 'Admin';
+    } else if (session && session.email) {
+      displayName = (session.name && String(session.name).trim()) || session.email.split('@')[0];
+    }
+
+    if (!displayName) {
+      displayName = getMockSessionName();
+    }
+
+    if (displayName) {
+      accountLink.textContent = displayName;
+      accountLink.setAttribute('aria-label', 'Signed in as ' + displayName);
+      accountLink.classList.add('is-signed-in');
+    } else {
+      accountLink.textContent = 'Login';
+      accountLink.removeAttribute('aria-label');
+      accountLink.classList.remove('is-signed-in');
     }
   }
 
@@ -1028,7 +1068,7 @@
   document.addEventListener('DOMContentLoaded', function () {
     ensureMainLandmark();
     adminLink = document.getElementById('admin-nav-link');
-    loadSessionAndShowAdmin();
+    loadSessionAndNav();
     setActiveNavLink();
     updateYear();
     initResponsiveNav();

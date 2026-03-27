@@ -95,6 +95,7 @@ function createSession(response, user) {
   sessions.set(sessionId, {
     id: user.id,
     email: user.email,
+    name: user.name,
     role: user.role,
     createdAt: Date.now()
   });
@@ -182,6 +183,7 @@ async function handleLogin(request, response) {
       createSession(response, {
         id: 0,
         email,
+        name: 'Admin',
         role: 'admin'
       });
       sendRedirect(response, '/admin');
@@ -192,7 +194,7 @@ async function handleLogin(request, response) {
 
     try {
       const [users] = await connection.query(
-        'SELECT id, password_hash FROM users WHERE email = ?',
+        'SELECT id, name, password_hash FROM users WHERE email = ?',
         [email]
       );
 
@@ -214,6 +216,7 @@ async function handleLogin(request, response) {
       createSession(response, {
         id: user.id,
         email,
+        name: user.name || email.split('@')[0],
         role: 'customer'
       });
       sendRedirect(response, '/index.html');

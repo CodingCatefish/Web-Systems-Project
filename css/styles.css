@@ -158,6 +158,14 @@ a {
   color: var(--color-primary);
 }
 
+.nav-account.is-signed-in {
+  color: var(--color-primary);
+  max-width: 10rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .cart-link {
   border: 1px solid rgba(26, 32, 44, 0.15);
   padding: 0.5rem 0.9rem;
