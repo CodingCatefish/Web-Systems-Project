@@ -2,6 +2,12 @@
   'use strict';
 
   var CART_KEY = 'inkwell_cart_count';
+  var BAG_ITEMS_KEY = 'inkwell_bag_items';
+  var BAG_OVERLAY_ID = 'bag-overlay';
+  var BAG_CLOSE_SELECTOR = '[data-bag-close]';
+  var bagOverlayEl = null;
+  var bagOpenTrigger = null;
+  var bagCloseTimer = null;
 
   function setActiveNavLink() {
     var current = window.location.pathname.split('/').pop() || 'index.html';
@@ -22,6 +28,13 @@
   }
 
   function getCartCount() {
+    var bagItems = getBagItems();
+    if (bagItems.length > 0) {
+      return bagItems.reduce(function (sum, item) {
+        return sum + item.quantity;
+      }, 0);
+    }
+
     return parseInt(sessionStorage.getItem(CART_KEY) || '0', 10);
   }
 
@@ -31,6 +44,414 @@
     if (badge) {
       badge.textContent = count;
     }
+  }
+
+  function getBagItems() {
+    var raw = sessionStorage.getItem(BAG_ITEMS_KEY);
+    if (!raw) return [];
+
+    try {
+      var parsed = JSON.parse(raw);
+      return normalizeBagItems(Array.isArray(parsed) ? parsed : []);
+    } catch (err) {
+      return [];
+    }
+  }
+
+  function getBagItemKey(item) {
+    return [
+      item.title || '',
+      item.author || '',
+      item.price || '',
+      item.category || ''
+    ].join('||');
+  }
+
+  function normalizeBagItems(items) {
+    var ordered = [];
+    var seen = Object.create(null);
+
+    items.forEach(function (item) {
+      if (!item || typeof item !== 'object') return;
+
+      var normalized = {
+        title: item.title || 'Book',
+        author: item.author || 'Unknown author',
+        price: item.price || '$0.00',
+        category: item.category || '',
+        page: item.page || 'index.html',
+        addedAt: item.addedAt || new Date().toISOString(),
+        quantity: Math.max(1, parseInt(item.quantity || '1', 10) || 1)
+      };
+      var key = getBagItemKey(normalized);
+
+      if (seen[key]) {
+        seen[key].quantity += normalized.quantity;
+        return;
+      }
+
+      seen[key] = normalized;
+      ordered.push(normalized);
+    });
+
+    return ordered;
+  }
+
+  function saveBagItems(items) {
+    var normalized = normalizeBagItems(items);
+    sessionStorage.setItem(BAG_ITEMS_KEY, JSON.stringify(normalized));
+    sessionStorage.setItem(CART_KEY, String(normalized.reduce(function (sum, item) {
+      return sum + item.quantity;
+    }, 0)));
+  }
+
+  function parsePrice(value) {
+    var numeric = parseFloat(String(value || '').replace(/[^0-9.]/g, ''));
+    return Number.isFinite(numeric) ? numeric : 0;
+  }
+
+  function formatCurrency(value) {
+    return '$' + value.toFixed(2);
+  }
+
+  function getBookDetails(button) {
+    var card = button.closest('.book-card');
+    if (!card) return null;
+
+    var titleNode = card.querySelector('.book-title');
+    var authorNode = card.querySelector('.book-author');
+    var priceNode = card.querySelector('.book-price');
+    var categoryNode = card.querySelector('.book-category');
+
+    return {
+      title: card.getAttribute('data-title') || (titleNode ? titleNode.textContent.trim() : 'Book'),
+      author: card.getAttribute('data-author') || (authorNode ? authorNode.textContent.trim() : 'Unknown author'),
+      price: priceNode ? priceNode.textContent.trim() : '',
+      category: categoryNode ? categoryNode.textContent.trim() : '',
+      page: window.location.pathname.split('/').pop() || 'index.html',
+      addedAt: new Date().toISOString(),
+      quantity: 1
+    };
+  }
+
+  function buildBagItemMarkup(item) {
+    var li = document.createElement('li');
+    li.className = 'bag-item';
+    li.setAttribute('data-bag-key', getBagItemKey(item));
+
+    var meta = item.author;
+    if (item.category) {
+      meta += ' · ' + item.category;
+    }
+
+    var itemKey = getBagItemKey(item);
+    var lineTotal = formatCurrency(parsePrice(item.price) * item.quantity);
+
+    li.innerHTML =
+      '<div class="bag-item-copy">' +
+        '<h3 class="bag-item-title"></h3>' +
+        '<p class="bag-item-meta"></p>' +
+      '</div>' +
+      '<div class="bag-stepper" aria-label="Adjust quantity for this title">' +
+        '<button type="button" class="bag-stepper-btn" data-bag-action="decrease" data-bag-key="' + itemKey + '" aria-label="Reduce quantity">-</button>' +
+        '<input class="bag-stepper-input" data-bag-input="quantity" data-bag-key="' + itemKey + '" type="number" min="1" max="99" inputmode="numeric" aria-label="Quantity" />' +
+        '<button type="button" class="bag-stepper-btn" data-bag-action="increase" data-bag-key="' + itemKey + '" aria-label="Increase quantity">+</button>' +
+      '</div>' +
+      '<div class="bag-item-side">' +
+        '<div class="bag-item-price"></div>' +
+        '<button type="button" class="bag-remove" data-bag-action="remove" data-bag-key="' + itemKey + '">Delete</button>' +
+      '</div>';
+
+    li.querySelector('.bag-item-title').textContent = item.title;
+    li.querySelector('.bag-item-meta').textContent = meta;
+    li.querySelector('.bag-stepper-input').value = String(item.quantity);
+    li.querySelector('.bag-item-price').textContent = lineTotal;
+
+    return li;
+  }
+
+  function setBagItemQuantity(itemKey, quantity) {
+    var nextQuantity = Math.min(99, Math.max(1, parseInt(quantity, 10) || 1));
+    var items = getBagItems().map(function (item) {
+      return Object.assign({}, item);
+    });
+    var changed = false;
+
+    items.forEach(function (item) {
+      if (getBagItemKey(item) !== itemKey) return;
+      if (item.quantity === nextQuantity) return;
+      item.quantity = nextQuantity;
+      changed = true;
+    });
+
+    if (!changed) return;
+
+    saveBagItems(items);
+    updateCartCount();
+    renderBagOverlay();
+  }
+
+  function updateBagItemQuantity(itemKey, delta) {
+    var items = getBagItems().map(function (item) {
+      return Object.assign({}, item);
+    });
+    var changed = false;
+    var nextItems = items.reduce(function (result, item) {
+      if (getBagItemKey(item) !== itemKey) {
+        result.push(item);
+        return result;
+      }
+
+      var nextQuantity = Math.min(99, item.quantity + delta);
+      changed = true;
+      if (nextQuantity > 0) {
+        item.quantity = nextQuantity;
+        result.push(item);
+      }
+
+      return result;
+    }, []);
+
+    if (!changed) return;
+
+    saveBagItems(nextItems);
+    updateCartCount();
+    renderBagOverlay();
+  }
+
+  function removeBagItem(itemKey) {
+    var nextItems = getBagItems().filter(function (item) {
+      return getBagItemKey(item) !== itemKey;
+    });
+
+    saveBagItems(nextItems);
+    updateCartCount();
+    renderBagOverlay();
+  }
+
+  function getFocusableElements(root) {
+    if (!root) return [];
+    return Array.prototype.slice.call(root.querySelectorAll([
+      'button:not([disabled])',
+      '[href]',
+      'input:not([disabled])',
+      'select:not([disabled])',
+      'textarea:not([disabled])',
+      '[tabindex]:not([tabindex="-1"])'
+    ].join(','))).filter(function (el) {
+      return !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length);
+    });
+  }
+
+  function ensureBagOverlay() {
+    if (bagOverlayEl) return bagOverlayEl;
+
+    bagOverlayEl = document.getElementById(BAG_OVERLAY_ID);
+    if (bagOverlayEl) return bagOverlayEl;
+
+    var overlay = document.createElement('div');
+    overlay.id = BAG_OVERLAY_ID;
+    overlay.className = 'bag-overlay';
+    overlay.hidden = true;
+    overlay.innerHTML =
+      '<div class="bag-backdrop" data-bag-close="true" aria-hidden="true"></div>' +
+      '<section class="bag-dialog" role="dialog" aria-modal="true" aria-labelledby="bag-title" aria-describedby="bag-summary" tabindex="-1">' +
+        '<button type="button" class="bag-close" data-bag-close="true" aria-label="Close shopping bag">×</button>' +
+        '<div class="bag-dialog-head">' +
+          '<p class="bag-eyebrow">Shopping Bag</p>' +
+          '<h2 id="bag-title">Your bag</h2>' +
+          '<p id="bag-summary">Saved titles from this session, available from anywhere on the site.</p>' +
+        '</div>' +
+        '<div class="bag-body">' +
+          '<ul class="bag-items" id="bag-items" aria-live="polite"></ul>' +
+          '<p class="bag-empty" id="bag-empty">Your bag is empty. Add a book from any page to start building it.</p>' +
+        '</div>' +
+        '<div class="bag-footer">' +
+          '<div class="bag-summary-row">' +
+            '<p class="bag-summary-label">Subtotal</p>' +
+            '<p class="bag-summary-value" id="bag-subtotal">$0.00</p>' +
+          '</div>' +
+          '<p class="bag-footer-note">Review your saved titles and continue browsing whenever you are ready.</p>' +
+          '<div class="bag-footer-actions">' +
+            '<button type="button" class="btn-mini bag-action" data-bag-close="true">Continue browsing</button>' +
+            '<a class="btn btn-primary bag-action" href="checkout.html">Checkout</a>' +
+          '</div>' +
+        '</div>' +
+      '</section>';
+
+    document.body.appendChild(overlay);
+    bagOverlayEl = overlay;
+
+    overlay.addEventListener('click', function (event) {
+      var actionTrigger = event.target.closest('[data-bag-action]');
+      if (actionTrigger) {
+        var action = actionTrigger.getAttribute('data-bag-action');
+        var itemKey = actionTrigger.getAttribute('data-bag-key');
+
+        if (action === 'increase' && itemKey) {
+          updateBagItemQuantity(itemKey, 1);
+        } else if (action === 'decrease' && itemKey) {
+          updateBagItemQuantity(itemKey, -1);
+        } else if (action === 'remove' && itemKey) {
+          removeBagItem(itemKey);
+        }
+        return;
+      }
+
+      if (event.target.closest(BAG_CLOSE_SELECTOR)) {
+        closeBagOverlay();
+      }
+    });
+
+    overlay.addEventListener('change', function (event) {
+      var input = event.target.closest('[data-bag-input="quantity"]');
+      if (!input) return;
+      setBagItemQuantity(input.getAttribute('data-bag-key'), input.value);
+    });
+
+    overlay.addEventListener('keydown', function (event) {
+      var input = event.target.closest('[data-bag-input="quantity"]');
+      if (!input) return;
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        input.blur();
+      }
+    });
+
+    overlay.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeBagOverlay();
+        return;
+      }
+
+      if (event.key !== 'Tab') return;
+
+      var dialog = overlay.querySelector('.bag-dialog');
+      var focusable = getFocusableElements(dialog);
+      if (!focusable.length) return;
+
+      var first = focusable[0];
+      var last = focusable[focusable.length - 1];
+      var active = document.activeElement;
+
+      if (event.shiftKey && active === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && active === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    });
+
+    return bagOverlayEl;
+  }
+
+  function renderBagOverlay() {
+    var overlay = ensureBagOverlay();
+    var items = getBagItems();
+    var list = overlay.querySelector('#bag-items');
+    var empty = overlay.querySelector('#bag-empty');
+    var summary = overlay.querySelector('#bag-summary');
+    var subtotal = overlay.querySelector('#bag-subtotal');
+
+    if (!list || !empty || !summary || !subtotal) return;
+
+    list.innerHTML = '';
+    subtotal.textContent = formatCurrency(items.reduce(function (sum, item) {
+      return sum + (parsePrice(item.price) * item.quantity);
+    }, 0));
+
+    if (items.length === 0) {
+      empty.hidden = false;
+      list.hidden = true;
+      summary.textContent = 'No items in your bag yet.';
+      subtotal.textContent = '$0.00';
+      return;
+    }
+
+    items.forEach(function (item) {
+      list.appendChild(buildBagItemMarkup(item));
+    });
+
+    empty.hidden = true;
+    list.hidden = false;
+    var totalUnits = items.reduce(function (sum, item) {
+      return sum + item.quantity;
+    }, 0);
+    summary.textContent = totalUnits + ' item' + (totalUnits === 1 ? '' : 's') + ' saved in this session.';
+  }
+
+  function openBagOverlay(trigger) {
+    var overlay = ensureBagOverlay();
+    var dialog = overlay.querySelector('.bag-dialog');
+
+    bagOpenTrigger = trigger || document.activeElement;
+    renderBagOverlay();
+
+    overlay.hidden = false;
+    window.clearTimeout(bagCloseTimer);
+    requestAnimationFrame(function () {
+      overlay.classList.add('is-open');
+      document.body.classList.add('bag-open');
+      if (dialog) {
+        dialog.focus();
+      }
+    });
+
+    document.querySelectorAll('.cart-link').forEach(function (link) {
+      link.setAttribute('aria-expanded', 'true');
+    });
+  }
+
+  function closeBagOverlay() {
+    if (!bagOverlayEl || bagOverlayEl.hidden) return;
+
+    bagOverlayEl.classList.remove('is-open');
+    document.body.classList.remove('bag-open');
+
+    document.querySelectorAll('.cart-link').forEach(function (link) {
+      link.setAttribute('aria-expanded', 'false');
+    });
+
+    bagCloseTimer = window.setTimeout(function () {
+      if (!bagOverlayEl) return;
+      bagOverlayEl.hidden = true;
+      if (bagOpenTrigger && typeof bagOpenTrigger.focus === 'function') {
+        bagOpenTrigger.focus();
+      }
+      bagOpenTrigger = null;
+    }, 320);
+  }
+
+  function initBagOverlay() {
+    var triggers = document.querySelectorAll('.cart-link');
+    if (!triggers.length) return;
+
+    ensureBagOverlay();
+
+    triggers.forEach(function (trigger) {
+      trigger.setAttribute('aria-haspopup', 'dialog');
+      trigger.setAttribute('aria-controls', BAG_OVERLAY_ID);
+      trigger.setAttribute('aria-expanded', 'false');
+      trigger.setAttribute('role', 'button');
+      trigger.addEventListener('click', function (event) {
+        event.preventDefault();
+        openBagOverlay(trigger);
+      });
+      trigger.addEventListener('keydown', function (event) {
+        if (event.key === ' ') {
+          event.preventDefault();
+          openBagOverlay(trigger);
+        }
+      });
+    });
+
+    document.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape') {
+        closeBagOverlay();
+      }
+    });
   }
 
   function showToast(message) {
@@ -48,13 +469,32 @@
   function initCartButtons() {
     document.querySelectorAll('.js-add-cart').forEach(function (button) {
       button.addEventListener('click', function () {
-        var card = button.closest('[data-title]');
-        var title = card ? card.getAttribute('data-title') : 'Book';
-        var nextCount = getCartCount() + 1;
+        var details = getBookDetails(button);
+        var items = getBagItems();
+        var existingItem = details ? items.find(function (item) {
+          return getBagItemKey(item) === getBagItemKey(details);
+        }) : null;
 
-        sessionStorage.setItem(CART_KEY, String(nextCount));
+        if (details) {
+          if (existingItem) {
+            existingItem.quantity += 1;
+          } else {
+            items.push(details);
+          }
+          saveBagItems(items);
+        } else {
+          sessionStorage.setItem(CART_KEY, String(getCartCount() + 1));
+        }
+
         updateCartCount();
-        showToast('Added "' + title + '" to bag');
+        if (details) {
+          showToast('Added "' + details.title + '" to bag');
+          if (bagOverlayEl && !bagOverlayEl.hidden) {
+            renderBagOverlay();
+          }
+        } else {
+          showToast('Added item to bag');
+        }
       });
     });
   }
@@ -345,6 +785,7 @@
     setActiveNavLink();
     updateYear();
     updateCartCount();
+    initBagOverlay();
     initCartButtons();
     initBookFilters();
     initReviewForm();
