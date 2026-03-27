@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Pagemark checkout page." />
+  <title>Pagemark - Checkout</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <style>
+    .checkout-shell {
+      display: grid;
+      grid-template-columns: minmax(0, 1.3fr) minmax(320px, 0.8fr);
+      gap: 1.4rem;
+      align-items: start;
+    }
+
+    .checkout-panel,
+    .checkout-summary {
+      padding: 1.45rem;
+    }
+
+    .checkout-stack {
+      display: grid;
+      gap: 1.25rem;
+    }
+
+    .checkout-section {
+      display: grid;
+      gap: 1rem;
+    }
+
+    .checkout-kicker {
+      margin: 0;
+      color: var(--color-accent);
+      font-size: 0.75rem;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    .checkout-title {
+      margin: 0;
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(2rem, 4vw, 3rem);
+      color: var(--color-primary);
+      text-wrap: balance;
+    }
+
+    .checkout-text {
+      margin: 0;
+      color: var(--color-muted);
+      line-height: 1.7;
+      text-wrap: pretty;
+    }
+
+    .checkout-chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.65rem;
+    }
+
+    .checkout-chip {
+      padding: 0.55rem 0.9rem;
+      border-radius: var(--radius-pill);
+      background: rgba(26, 32, 44, 0.05);
+      color: var(--color-primary-soft);
+      font-size: 0.82rem;
+      font-weight: 700;
+    }
+
+    .checkout-panel h2,
+    .checkout-summary h2 {
+      margin: 0;
+      font-size: 1.1rem;
+      color: var(--color-primary);
+    }
+
+    .checkout-summary-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: grid;
+      gap: 0.85rem;
+    }
+
+    .checkout-item {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 0.8rem;
+      align-items: start;
+      padding: 1rem;
+      border-radius: 18px;
+      background: rgba(26, 32, 44, 0.04);
+      border: 1px solid rgba(26, 32, 44, 0.07);
+    }
+
+    .checkout-item h3,
+    .checkout-item p {
+      margin: 0;
+    }
+
+    .checkout-item h3 {
+      color: var(--color-primary);
+      font-size: 1rem;
+      text-wrap: balance;
+    }
+
+    .checkout-item p {
+      margin-top: 0.25rem;
+      color: var(--color-muted);
+      text-wrap: pretty;
+    }
+
+    .checkout-item strong,
+    .checkout-total strong {
+      font-variant-numeric: tabular-nums;
+    }
+
+    .checkout-total {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 1rem;
+      padding-top: 1rem;
+      border-top: 1px solid rgba(26, 32, 44, 0.08);
+      color: var(--color-primary);
+    }
+
+    .checkout-total p {
+      margin: 0;
+      color: var(--color-muted);
+      font-size: 0.85rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .checkout-total strong {
+      font-size: 1.55rem;
+    }
+
+    .checkout-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.8rem;
+    }
+
+    .checkout-note {
+      margin: 0;
+      color: var(--color-muted);
+      font-size: 0.9rem;
+    }
+
+    .checkout-empty {
+      margin: 0;
+      padding: 1rem 1.1rem;
+      border-radius: 18px;
+      background: rgba(245, 158, 11, 0.12);
+      border: 1px solid rgba(245, 158, 11, 0.24);
+      color: var(--color-primary);
+    }
+
+    @media (max-width: 900px) {
+      .checkout-shell {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="site-shell">
+    <header class="site-header">
+      <div class="container header-row">
+        <a class="brand" href="index.html"><span class="brand-mark">B</span> Pagemark</a>
+        <nav class="nav-links" aria-label="Main navigation">
+          <a class="nav-link" href="index.html">Home</a>
+          <a class="nav-link" href="books.html">View Books</a>
+          <a class="nav-link" href="services.html">Services</a>
+          <a class="nav-link" href="reviews.html">Reviews</a>
+          <a class="nav-link" href="about.html">About</a>
+          <a class="nav-link nav-account" href="login.html" id="account-nav-link">Login</a>
+          <a class="nav-link" href="admin" id="admin-nav-link" style="display: none; font-weight: 800; color: var(--color-accent);">Admin</a>
+          <a class="cart-link" href="books.html">Bag <span id="cart-count">0</span></a>
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      <section class="page-hero">
+        <div class="container reveal">
+          <p class="checkout-kicker">Checkout</p>
+          <h1 class="checkout-title">Finish your order with a calm, polished checkout flow.</h1>
+          <p class="checkout-text">Review your delivery details, payment information, and saved books in one place before placing an order.</p>
+        </div>
+      </section>
+
+      <section class="section" style="padding-top: 1rem;">
+        <div class="container checkout-shell">
+          <div class="checkout-stack">
+            <article class="panel checkout-panel reveal">
+              <div class="checkout-section">
+                <h2>Contact</h2>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="checkout-name">Full Name</label>
+                    <input id="checkout-name" type="text" placeholder="Avid Reader" />
+                  </div>
+                  <div class="form-group">
+                    <label for="checkout-email">Email</label>
+                    <input id="checkout-email" type="email" placeholder="reader@example.com" />
+                  </div>
+                </div>
+              </div>
+
+              <div class="checkout-section">
+                <h2>Delivery</h2>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="checkout-address">Address</label>
+                    <input id="checkout-address" type="text" placeholder="123 Book Lane" />
+                  </div>
+                  <div class="form-group">
+                    <label for="checkout-city">City</label>
+                    <input id="checkout-city" type="text" placeholder="Singapore" />
+                  </div>
+                </div>
+                <div class="checkout-chip-row">
+                  <span class="checkout-chip">Gift wrap available</span>
+                  <span class="checkout-chip">Member points available</span>
+                  <span class="checkout-chip">Estimated dispatch in 3 to 5 days</span>
+                </div>
+              </div>
+
+              <div class="checkout-section">
+                <h2>Payment</h2>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="checkout-card">Card Number</label>
+                    <input id="checkout-card" type="text" placeholder="4242 4242 4242 4242" />
+                  </div>
+                  <div class="form-group">
+                    <label for="checkout-expiry">Expiry</label>
+                    <input id="checkout-expiry" type="text" placeholder="12 / 28" />
+                  </div>
+                </div>
+                <p class="checkout-note">Payment processing is not enabled in this prototype, but your order summary and quantities stay in sync with the bag.</p>
+              </div>
+
+              <div class="checkout-actions">
+                <a class="btn btn-primary" href="books.html">Return to books</a>
+                <button class="btn btn-soft" type="button" id="place-order">Place order</button>
+              </div>
+            </article>
+          </div>
+
+          <aside class="panel checkout-summary reveal">
+            <div class="checkout-section">
+              <h2>Order Summary</h2>
+              <ul class="checkout-summary-list" id="checkout-items"></ul>
+              <p class="checkout-empty" id="checkout-empty" hidden>Your bag is empty. Add a few books to see them summarized here.</p>
+              <div class="checkout-total">
+                <p>Subtotal</p>
+                <strong id="checkout-subtotal">$0.00</strong>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container footer-grid">
+        <section>
+          <h3>Pagemark</h3>
+          <p>Curated books, a welcoming space, and a strong reading community all year round.</p>
+        </section>
+        <section>
+          <h3>Explore</h3>
+          <ul class="footer-links">
+            <li><a href="books.html">View Books</a></li>
+            <li><a href="services.html">Author Events</a></li>
+            <li><a href="reviews.html">Reader Reviews</a></li>
+          </ul>
+        </section>
+        <section>
+          <h3>Information</h3>
+          <ul class="footer-links">
+            <li><a href="about.html">About Us</a></li>
+            <li><a href="services.html">Services</a></li>
+            <li><a href="about.html">Contact</a></li>
+          </ul>
+        </section>
+      </div>
+      <div class="container copy">&copy; <span class="js-year"></span> Pagemark Bookstore. All rights reserved.</div>
+    </footer>
+  </div>
+
+  <div class="toast" id="cart-toast" role="status" aria-live="polite"></div>
+  <script src="js/main.js"></script>
+  <script src="js/checkout.js"></script>
+</body>
+</html>

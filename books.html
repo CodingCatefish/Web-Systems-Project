@@ -3,19 +3,390 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="Pagemark catalog - browse books across genres." />
-  <title>Pagemark - Catalog</title>
+  <meta name="description" content="Pagemark View Books page - browse books across genres and search by title or author." />
+  <title>Pagemark - View Books</title>
   <link rel="stylesheet" href="css/styles.css" />
+  <style>
+    .book-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.7rem;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .btn-outline {
+      border: 1px solid rgba(26, 32, 44, 0.15);
+      background: transparent;
+      color: var(--color-primary);
+      transition:
+        transform 180ms cubic-bezier(0.2, 0, 0, 1),
+        background-color 180ms ease,
+        border-color 180ms ease,
+        box-shadow 220ms ease,
+        opacity 180ms ease;
+    }
+
+    .btn-outline:hover {
+      background: rgba(26, 32, 44, 0.05);
+      box-shadow: 0 10px 20px rgba(15, 23, 42, 0.08);
+    }
+
+    .btn-outline:active,
+    .details-modal__close:active,
+    .details-modal__tab:active {
+      transform: scale(0.96);
+    }
+
+    .details-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 60;
+      display: grid;
+      place-items: center;
+      padding: 1.25rem;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 320ms cubic-bezier(0.2, 0, 0, 1);
+    }
+
+    .details-modal[hidden] {
+      display: none;
+    }
+
+    .details-modal.is-open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .details-modal__backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.72);
+      backdrop-filter: blur(6px);
+      opacity: 0;
+      transition: opacity 320ms cubic-bezier(0.2, 0, 0, 1);
+    }
+
+    .details-modal__dialog {
+      position: relative;
+      width: min(940px, 100%);
+      max-height: min(88vh, 900px);
+      overflow: auto;
+      background: var(--color-paper);
+      border-radius: 24px;
+      box-shadow: 0 30px 80px rgba(15, 23, 42, 0.34);
+      border: 1px solid rgba(26, 32, 44, 0.1);
+      padding: 1.35rem;
+      z-index: 1;
+      opacity: 0;
+      filter: blur(10px);
+      transform: translateY(22px) scale(0.985);
+      transition:
+        transform 360ms cubic-bezier(0.2, 0, 0, 1),
+        opacity 300ms cubic-bezier(0.2, 0, 0, 1),
+        filter 300ms cubic-bezier(0.2, 0, 0, 1);
+      will-change: transform, opacity, filter;
+    }
+
+    .details-modal.is-open .details-modal__backdrop {
+      opacity: 1;
+    }
+
+    .details-modal.is-open .details-modal__dialog {
+      opacity: 1;
+      filter: blur(0);
+      transform: translateY(0) scale(1);
+    }
+
+    .details-modal__top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .details-modal__eyebrow {
+      margin: 0 0 0.35rem;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      font-size: 0.72rem;
+      font-weight: 800;
+      color: var(--color-accent);
+    }
+
+    .details-modal__title {
+      margin: 0;
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(1.55rem, 3vw, 2.4rem);
+      color: var(--color-primary);
+    }
+
+    .details-modal__subtitle {
+      margin: 0.35rem 0 0;
+      color: var(--color-muted);
+    }
+
+    .details-modal__close {
+      width: 2.75rem;
+      height: 2.75rem;
+      border: 0;
+      border-radius: 50%;
+      background: rgba(26, 32, 44, 0.08);
+      color: var(--color-primary);
+      font-size: 1.45rem;
+      cursor: pointer;
+      flex: 0 0 auto;
+      transition:
+        transform 180ms cubic-bezier(0.2, 0, 0, 1),
+        background-color 180ms ease,
+        opacity 180ms ease;
+    }
+
+    .details-modal__close:hover {
+      background: rgba(26, 32, 44, 0.14);
+    }
+
+    .details-modal__tabs {
+      display: inline-flex;
+      gap: 0.35rem;
+      padding: 0.3rem;
+      border-radius: 999px;
+      background: rgba(26, 32, 44, 0.05);
+      margin-bottom: 1rem;
+    }
+
+    .details-modal__tab {
+      border: 0;
+      background: transparent;
+      color: var(--color-muted);
+      padding: 0.72rem 1rem;
+      border-radius: 999px;
+      font-weight: 800;
+      cursor: pointer;
+      transition:
+        transform 180ms cubic-bezier(0.2, 0, 0, 1),
+        background-color 220ms ease,
+        color 220ms ease,
+        box-shadow 220ms ease,
+        opacity 180ms ease;
+    }
+
+    .details-modal__tab[aria-selected="true"] {
+      background: var(--color-primary);
+      color: #fff;
+      box-shadow: 0 10px 24px rgba(15, 23, 42, 0.16);
+    }
+
+    .details-modal__panels {
+      display: grid;
+      gap: 1rem;
+    }
+
+    .details-modal__panel[hidden] {
+      display: none;
+    }
+
+    .details-modal__panel.is-entering {
+      animation: panel-fade 320ms cubic-bezier(0.2, 0, 0, 1);
+    }
+
+    .details-grid {
+      display: grid;
+      grid-template-columns: 220px minmax(0, 1fr);
+      gap: 1.25rem;
+      align-items: start;
+    }
+
+    .details-cover {
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: var(--shadow-md);
+      aspect-ratio: 2 / 3;
+    }
+
+    .details-cover img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .details-meta {
+      display: grid;
+      gap: 0.95rem;
+    }
+
+    .details-meta__stats {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.75rem;
+    }
+
+    .details-stat {
+      background: rgba(26, 32, 44, 0.04);
+      border-radius: 16px;
+      padding: 0.85rem 1rem;
+    }
+
+    .details-stat span {
+      display: block;
+      font-size: 0.72rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--color-muted);
+      margin-bottom: 0.35rem;
+    }
+
+    .details-stat strong {
+      color: var(--color-primary);
+      font-size: 1rem;
+    }
+
+    .details-synopsis {
+      margin: 0;
+      color: var(--color-text);
+      line-height: 1.7;
+    }
+
+    .preview-frame {
+      background: linear-gradient(180deg, #fef8e8 0%, #fffef9 100%);
+      border: 1px solid rgba(26, 32, 44, 0.08);
+      border-radius: 22px;
+      padding: 1.2rem;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.55);
+    }
+
+    .preview-frame__screen {
+      background: #fff;
+      border-radius: 18px;
+      padding: 1.4rem;
+      border: 1px solid rgba(26, 32, 44, 0.08);
+      box-shadow: 0 16px 30px rgba(26, 32, 44, 0.08);
+      min-height: 340px;
+    }
+
+    .preview-frame__header {
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      align-items: flex-start;
+      margin-bottom: 1rem;
+    }
+
+    .preview-frame__chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.45rem 0.75rem;
+      border-radius: 999px;
+      background: rgba(245, 158, 11, 0.16);
+      color: #915a00;
+      font-size: 0.78rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .preview-frame__page {
+      color: var(--color-muted);
+      font-size: 0.88rem;
+      font-weight: 700;
+    }
+
+    .preview-frame__title {
+      margin: 0 0 0.35rem;
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(1.35rem, 2.6vw, 2rem);
+      color: var(--color-primary);
+    }
+
+    .preview-frame__author {
+      margin: 0;
+      color: var(--color-muted);
+    }
+
+    .preview-frame__body {
+      margin-top: 1.1rem;
+      display: grid;
+      gap: 0.8rem;
+      line-height: 1.75;
+      color: var(--color-text);
+      font-size: 1rem;
+    }
+
+    .details-modal__footer {
+      margin-top: 1rem;
+      color: var(--color-muted);
+      font-size: 0.92rem;
+    }
+
+    body.modal-open {
+      overflow: hidden;
+    }
+
+    @keyframes panel-fade {
+      from {
+        opacity: 0;
+        transform: translateY(12px);
+        filter: blur(8px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+        filter: blur(0);
+      }
+    }
+
+    @media (max-width: 800px) {
+      .details-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .details-cover {
+        width: min(220px, 70vw);
+      }
+    }
+
+    @media (max-width: 640px) {
+      .details-modal {
+        padding: 0.8rem;
+      }
+
+      .details-modal__dialog {
+        max-height: 92vh;
+        padding: 1rem;
+      }
+
+      .details-modal__top {
+        flex-direction: column;
+      }
+
+      .details-modal__tabs {
+        width: 100%;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .details-modal__tab {
+        width: 100%;
+      }
+
+      .details-meta__stats {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
 </head>
 <body>
-  <a href="#main-content" class="skip-link">Skip to main content</a>
   <div class="site-shell">
     <header class="site-header">
       <div class="container header-row">
         <a class="brand" href="index.html"><span class="brand-mark">B</span> Pagemark</a>
         <nav class="nav-links" aria-label="Main navigation">
           <a class="nav-link" href="index.html">Home</a>
-          <a class="nav-link" href="books.html">Catalog</a>
+          <a class="nav-link" href="books.html">View Books</a>
           <a class="nav-link" href="services.html">Services</a>
           <a class="nav-link" href="reviews.html">Reviews</a>
           <a class="nav-link" href="about.html">About</a>
@@ -26,122 +397,102 @@
       </div>
     </header>
 
-    <main id="main-content">
+    <main>
       <section class="page-hero">
         <div class="container reveal">
-          <h1 class="section-title">Our Catalog</h1>
+          <h1 class="section-title">View Books</h1>
           <p class="section-text">Explore hand-picked titles from every shelf in Pagemark.</p>
         </div>
       </section>
 
-      <section class="section" style="padding-top: 1rem;">
+      <section class="section books-section">
         <div class="container">
-          <form class="catalog-tools reveal panel search-form" id="catalog-controls" aria-label="Search and filter books">
-            <div class="catalog-header">
-              <div>
-                <h2 class="catalog-title">Browse the collection</h2>
-                <p class="catalog-summary" id="catalog-results-summary" role="status" aria-live="polite"></p>
+          <div class="catalog-tools reveal panel catalog-tools-panel">
+            <div class="catalog-controls" role="group" aria-label="Book filtering controls">
+              <div class="genre-row" role="group" aria-label="Genre filters">
+                <button class="genre-chip active" data-genre="all" type="button">All</button>
+                <button class="genre-chip" data-genre="fiction" type="button">Fiction</button>
+                <button class="genre-chip" data-genre="non-fiction" type="button">Non-Fiction</button>
+                <button class="genre-chip" data-genre="sci-fi" type="button">Sci-Fi</button>
+                <button class="genre-chip" data-genre="classics" type="button">Classics</button>
+                <button class="genre-chip" data-genre="self-help" type="button">Self-Help</button>
+                <button class="genre-chip" data-genre="fantasy" type="button">Fantasy</button>
               </div>
-              <button class="catalog-clear-all" id="clear-filters" type="button">Clear filters</button>
-            </div>
-
-            <div class="catalog-control-grid">
-              <div class="search-wrap">
-                <label class="search-label" for="book-search">Search by title or author</label>
-                <div class="search-input-row">
-                  <input
-                    id="book-search"
-                    type="search"
-                    placeholder="Try Dune or Andy Weir"
-                    autocomplete="off"
-                    aria-describedby="catalog-results-summary"
-                  />
-                  <button class="catalog-clear" id="clear-search" type="button" hidden>Clear</button>
-                </div>
+              <div class="search-actions">
+                <label class="search-wrap" for="book-search">
+                  <span class="visually-hidden">Search books by title or author</span>
+                  <input id="book-search" type="text" placeholder="Search books or authors" aria-label="Search books by title or author" autocomplete="off" />
+                </label>
+                <button class="btn-mini filter-reset" id="clear-filters" type="button" aria-label="Clear search and reset all filters">Clear</button>
               </div>
-
-              <fieldset class="genre-filter-group">
-                <legend>Filter by genre</legend>
-                <div class="genre-row">
-                  <button class="genre-chip active" data-genre="all" type="button" aria-pressed="true">All</button>
-                  <button class="genre-chip" data-genre="fiction" type="button" aria-pressed="false">Fiction</button>
-                  <button class="genre-chip" data-genre="non-fiction" type="button" aria-pressed="false">Non-Fiction</button>
-                  <button class="genre-chip" data-genre="sci-fi" type="button" aria-pressed="false">Sci-Fi</button>
-                  <button class="genre-chip" data-genre="classics" type="button" aria-pressed="false">Classics</button>
-                  <button class="genre-chip" data-genre="self-help" type="button" aria-pressed="false">Self-Help</button>
-                  <button class="genre-chip" data-genre="fantasy" type="button" aria-pressed="false">Fantasy</button>
-                </div>
-              </fieldset>
             </div>
-          </form>
+            <p class="results-count" id="results-count" aria-live="polite"></p>
+          </div>
 
+          <h2 class="visually-hidden">Available books</h2>
           <div class="grid grid-4" id="book-grid">
             <article class="book-card reveal book-item" data-title="The Midnight Library" data-author="Matt Haig" data-genre="fiction">
               <div class="book-cover"><img src="https://picsum.photos/seed/book1/400/600" alt="The Midnight Library cover" referrerpolicy="no-referrer"></div>
               <div class="book-meta"><span class="book-category">Fiction</span><h3 class="book-title">The Midnight Library</h3><p class="book-author">Matt Haig</p></div>
-              <div class="book-row"><span class="book-price">$24.99</span><button class="btn-mini js-add-cart">Add</button></div>
+              <div class="book-row"><span class="book-price">$24.99</span><div class="book-actions"><button class="btn-mini btn-outline js-view-details" type="button" aria-haspopup="dialog">View details</button><button class="btn-mini js-add-cart" type="button">Add</button></div></div>
             </article>
             <article class="book-card reveal book-item" data-title="Dune" data-author="Frank Herbert" data-genre="sci-fi">
               <div class="book-cover"><img src="https://picsum.photos/seed/book2/400/600" alt="Dune cover" referrerpolicy="no-referrer"></div>
               <div class="book-meta"><span class="book-category">Sci-Fi</span><h3 class="book-title">Dune</h3><p class="book-author">Frank Herbert</p></div>
-              <div class="book-row"><span class="book-price">$18.99</span><button class="btn-mini js-add-cart">Add</button></div>
+              <div class="book-row"><span class="book-price">$18.99</span><div class="book-actions"><button class="btn-mini btn-outline js-view-details" type="button" aria-haspopup="dialog">View details</button><button class="btn-mini js-add-cart" type="button">Add</button></div></div>
             </article>
             <article class="book-card reveal book-item" data-title="Project Hail Mary" data-author="Andy Weir" data-genre="sci-fi">
               <div class="book-cover"><img src="https://picsum.photos/seed/book3/400/600" alt="Project Hail Mary cover" referrerpolicy="no-referrer"></div>
               <div class="book-meta"><span class="book-category">Sci-Fi</span><h3 class="book-title">Project Hail Mary</h3><p class="book-author">Andy Weir</p></div>
-              <div class="book-row"><span class="book-price">$26.00</span><button class="btn-mini js-add-cart">Add</button></div>
+              <div class="book-row"><span class="book-price">$26.00</span><div class="book-actions"><button class="btn-mini btn-outline js-view-details" type="button" aria-haspopup="dialog">View details</button><button class="btn-mini js-add-cart" type="button">Add</button></div></div>
             </article>
             <article class="book-card reveal book-item" data-title="Tomorrow and Tomorrow and Tomorrow" data-author="Gabrielle Zevin" data-genre="fiction">
               <div class="book-cover"><img src="https://picsum.photos/seed/book4/400/600" alt="Tomorrow and Tomorrow and Tomorrow cover" referrerpolicy="no-referrer"></div>
               <div class="book-meta"><span class="book-category">Fiction</span><h3 class="book-title">Tomorrow and Tomorrow and Tomorrow</h3><p class="book-author">Gabrielle Zevin</p></div>
-              <div class="book-row"><span class="book-price">$28.00</span><button class="btn-mini js-add-cart">Add</button></div>
+              <div class="book-row"><span class="book-price">$28.00</span><div class="book-actions"><button class="btn-mini btn-outline js-view-details" type="button" aria-haspopup="dialog">View details</button><button class="btn-mini js-add-cart" type="button">Add</button></div></div>
             </article>
             <article class="book-card reveal book-item" data-title="Sapiens" data-author="Yuval Noah Harari" data-genre="non-fiction">
               <div class="book-cover"><img src="https://picsum.photos/seed/book5/400/600" alt="Sapiens cover" referrerpolicy="no-referrer"></div>
               <div class="book-meta"><span class="book-category">Non-Fiction</span><h3 class="book-title">Sapiens</h3><p class="book-author">Yuval Noah Harari</p></div>
-              <div class="book-row"><span class="book-price">$22.50</span><button class="btn-mini js-add-cart">Add</button></div>
+              <div class="book-row"><span class="book-price">$22.50</span><div class="book-actions"><button class="btn-mini btn-outline js-view-details" type="button" aria-haspopup="dialog">View details</button><button class="btn-mini js-add-cart" type="button">Add</button></div></div>
             </article>
             <article class="book-card reveal book-item" data-title="Atomic Habits" data-author="James Clear" data-genre="self-help">
               <div class="book-cover"><img src="https://picsum.photos/seed/book6/400/600" alt="Atomic Habits cover" referrerpolicy="no-referrer"></div>
               <div class="book-meta"><span class="book-category">Self-Help</span><h3 class="book-title">Atomic Habits</h3><p class="book-author">James Clear</p></div>
-              <div class="book-row"><span class="book-price">$20.00</span><button class="btn-mini js-add-cart">Add</button></div>
+              <div class="book-row"><span class="book-price">$20.00</span><div class="book-actions"><button class="btn-mini btn-outline js-view-details" type="button" aria-haspopup="dialog">View details</button><button class="btn-mini js-add-cart" type="button">Add</button></div></div>
             </article>
             <article class="book-card reveal book-item" data-title="The Hobbit" data-author="J.R.R. Tolkien" data-genre="fantasy">
               <div class="book-cover"><img src="https://picsum.photos/seed/book7/400/600" alt="The Hobbit cover" referrerpolicy="no-referrer"></div>
               <div class="book-meta"><span class="book-category">Fantasy</span><h3 class="book-title">The Hobbit</h3><p class="book-author">J.R.R. Tolkien</p></div>
-              <div class="book-row"><span class="book-price">$15.99</span><button class="btn-mini js-add-cart">Add</button></div>
+              <div class="book-row"><span class="book-price">$15.99</span><div class="book-actions"><button class="btn-mini btn-outline js-view-details" type="button" aria-haspopup="dialog">View details</button><button class="btn-mini js-add-cart" type="button">Add</button></div></div>
             </article>
             <article class="book-card reveal book-item" data-title="1984" data-author="George Orwell" data-genre="classics">
               <div class="book-cover"><img src="https://picsum.photos/seed/book8/400/600" alt="1984 cover" referrerpolicy="no-referrer"></div>
               <div class="book-meta"><span class="book-category">Classics</span><h3 class="book-title">1984</h3><p class="book-author">George Orwell</p></div>
-              <div class="book-row"><span class="book-price">$14.99</span><button class="btn-mini js-add-cart">Add</button></div>
+              <div class="book-row"><span class="book-price">$14.99</span><div class="book-actions"><button class="btn-mini btn-outline js-view-details" type="button" aria-haspopup="dialog">View details</button><button class="btn-mini js-add-cart" type="button">Add</button></div></div>
             </article>
             <article class="book-card reveal book-item" data-title="To Kill a Mockingbird" data-author="Harper Lee" data-genre="classics">
               <div class="book-cover"><img src="https://picsum.photos/seed/book9/400/600" alt="To Kill a Mockingbird cover" referrerpolicy="no-referrer"></div>
               <div class="book-meta"><span class="book-category">Classics</span><h3 class="book-title">To Kill a Mockingbird</h3><p class="book-author">Harper Lee</p></div>
-              <div class="book-row"><span class="book-price">$16.99</span><button class="btn-mini js-add-cart">Add</button></div>
+              <div class="book-row"><span class="book-price">$16.99</span><div class="book-actions"><button class="btn-mini btn-outline js-view-details" type="button" aria-haspopup="dialog">View details</button><button class="btn-mini js-add-cart" type="button">Add</button></div></div>
             </article>
             <article class="book-card reveal book-item" data-title="The Great Gatsby" data-author="F. Scott Fitzgerald" data-genre="classics">
               <div class="book-cover"><img src="https://picsum.photos/seed/book10/400/600" alt="The Great Gatsby cover" referrerpolicy="no-referrer"></div>
               <div class="book-meta"><span class="book-category">Classics</span><h3 class="book-title">The Great Gatsby</h3><p class="book-author">F. Scott Fitzgerald</p></div>
-              <div class="book-row"><span class="book-price">$12.99</span><button class="btn-mini js-add-cart">Add</button></div>
+              <div class="book-row"><span class="book-price">$12.99</span><div class="book-actions"><button class="btn-mini btn-outline js-view-details" type="button" aria-haspopup="dialog">View details</button><button class="btn-mini js-add-cart" type="button">Add</button></div></div>
             </article>
             <article class="book-card reveal book-item" data-title="Thinking Fast and Slow" data-author="Daniel Kahneman" data-genre="non-fiction">
               <div class="book-cover"><img src="https://picsum.photos/seed/book11/400/600" alt="Thinking Fast and Slow cover" referrerpolicy="no-referrer"></div>
               <div class="book-meta"><span class="book-category">Non-Fiction</span><h3 class="book-title">Thinking Fast and Slow</h3><p class="book-author">Daniel Kahneman</p></div>
-              <div class="book-row"><span class="book-price">$21.00</span><button class="btn-mini js-add-cart">Add</button></div>
+              <div class="book-row"><span class="book-price">$21.00</span><div class="book-actions"><button class="btn-mini btn-outline js-view-details" type="button" aria-haspopup="dialog">View details</button><button class="btn-mini js-add-cart" type="button">Add</button></div></div>
             </article>
             <article class="book-card reveal book-item" data-title="Educated" data-author="Tara Westover" data-genre="non-fiction">
               <div class="book-cover"><img src="https://picsum.photos/seed/book12/400/600" alt="Educated cover" referrerpolicy="no-referrer"></div>
-              <div class="book-meta"><span class="book-category">Biography</span><h3 class="book-title">Educated</h3><p class="book-author">Tara Westover</p></div>
-              <div class="book-row"><span class="book-price">$19.00</span><button class="btn-mini js-add-cart">Add</button></div>
+              <div class="book-meta"><span class="book-category">Non-Fiction</span><h3 class="book-title">Educated</h3><p class="book-author">Tara Westover</p></div>
+              <div class="book-row"><span class="book-price">$19.00</span><div class="book-actions"><button class="btn-mini btn-outline js-view-details" type="button" aria-haspopup="dialog">View details</button><button class="btn-mini js-add-cart" type="button">Add</button></div></div>
             </article>
           </div>
-          <div id="no-results" class="empty-state" hidden>
-            <h2>No books match this search</h2>
-            <p>Try a different title, author, or genre filter to see more of the catalog.</p>
-            <button class="btn btn-primary" id="reset-filters" type="button">Show all books</button>
-          </div>
+          <p id="no-results" role="status" aria-live="polite">No books match your current filters.</p>
         </div>
       </section>
     </main>
@@ -155,7 +506,7 @@
         <section>
           <h4>Explore</h4>
           <ul class="footer-links">
-            <li><a href="books.html">All Books</a></li>
+            <li><a href="books.html">View Books</a></li>
             <li><a href="books.html">Top Rated</a></li>
             <li><a href="services.html">Author Events</a></li>
           </ul>
@@ -174,7 +525,65 @@
     </footer>
   </div>
 
+  <div class="details-modal" id="book-details-modal" hidden>
+    <div class="details-modal__backdrop" data-close-modal></div>
+    <section class="details-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="book-details-title" aria-describedby="book-details-description" tabindex="-1">
+      <div class="details-modal__top">
+        <div>
+          <p class="details-modal__eyebrow">Book details</p>
+          <h2 class="details-modal__title" id="book-details-title"></h2>
+          <p class="details-modal__subtitle" id="book-details-subtitle"></p>
+        </div>
+        <button class="details-modal__close" type="button" data-close-modal aria-label="Close book details">&times;</button>
+      </div>
+
+      <div class="details-modal__tabs" role="tablist" aria-label="Book detail views">
+        <button class="details-modal__tab" type="button" role="tab" id="details-tab" aria-controls="details-panel" aria-selected="true" data-modal-tab="details">Details</button>
+        <button class="details-modal__tab" type="button" role="tab" id="preview-tab" aria-controls="preview-panel" aria-selected="false" data-modal-tab="preview">Preview</button>
+      </div>
+
+      <div class="details-modal__panels">
+        <section class="details-modal__panel" id="details-panel" role="tabpanel" aria-labelledby="details-tab">
+          <div class="details-grid">
+            <div class="details-cover"><img id="book-details-cover" src="data:image/gif;base64,R0lGODlhAQABAAAAACw=" alt="" /></div>
+            <div class="details-meta">
+              <div class="details-meta__stats">
+                <div class="details-stat"><span>Author</span><strong id="book-details-author"></strong></div>
+                <div class="details-stat"><span>Category</span><strong id="book-details-genre"></strong></div>
+                <div class="details-stat"><span>Price</span><strong id="book-details-price"></strong></div>
+                <div class="details-stat"><span>Format</span><strong>Paperback</strong></div>
+              </div>
+              <div>
+                <p class="details-modal__eyebrow" style="margin-bottom: 0.45rem;">Synopsis</p>
+                <p class="details-synopsis" id="book-details-description"></p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="details-modal__panel" id="preview-panel" role="tabpanel" aria-labelledby="preview-tab" hidden>
+          <div class="preview-frame">
+            <div class="preview-frame__screen">
+              <div class="preview-frame__header">
+                <div>
+                  <p class="preview-frame__chip">Book preview</p>
+                  <h3 class="preview-frame__title" id="book-preview-title"></h3>
+                  <p class="preview-frame__author" id="book-preview-author"></p>
+                </div>
+                <div class="preview-frame__page" id="book-preview-page"></div>
+              </div>
+              <div class="preview-frame__body" id="book-preview-body"></div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <p class="details-modal__footer">Use Escape or click outside the dialog to close.</p>
+    </section>
+  </div>
+
   <div class="toast" id="cart-toast" role="status" aria-live="polite"></div>
   <script src="js/main.js"></script>
+  <script src="js/books.js"></script>
 </body>
 </html>
