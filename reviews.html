@@ -1,11 +1,11 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="Read and share book reviews at Pagemark." />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Read and share book reviews at Pagemark.">
   <title>Pagemark - Reviews</title>
-  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
   <a href="#main-content" class="skip-link">Skip to main content</a>
@@ -57,7 +57,7 @@
                   autocomplete="name"
                   aria-describedby="review-name-error"
                   required
-                />
+                >
                 <p class="field-error" id="review-name-error" hidden></p>
               </div>
               <div class="form-group">
@@ -69,22 +69,22 @@
                   placeholder="e.g. The Midnight Library"
                   aria-describedby="review-book-error"
                   required
-                />
+                >
                 <p class="field-error" id="review-book-error" hidden></p>
               </div>
             </div>
             <fieldset class="form-group rating-fieldset">
               <legend>Your Rating</legend>
               <div class="rating-group" id="star-input" aria-describedby="review-rating-help review-rating-error">
-                <input class="visually-hidden rating-input" type="radio" name="rating" id="rating-1" value="1" />
+                <input class="visually-hidden rating-input" type="radio" name="rating" id="rating-1" value="1">
                 <label class="rating-star" for="rating-1"><span aria-hidden="true">&#9733;</span><span class="visually-hidden">1 star</span></label>
-                <input class="visually-hidden rating-input" type="radio" name="rating" id="rating-2" value="2" />
+                <input class="visually-hidden rating-input" type="radio" name="rating" id="rating-2" value="2">
                 <label class="rating-star" for="rating-2"><span aria-hidden="true">&#9733;</span><span class="visually-hidden">2 stars</span></label>
-                <input class="visually-hidden rating-input" type="radio" name="rating" id="rating-3" value="3" />
+                <input class="visually-hidden rating-input" type="radio" name="rating" id="rating-3" value="3">
                 <label class="rating-star" for="rating-3"><span aria-hidden="true">&#9733;</span><span class="visually-hidden">3 stars</span></label>
-                <input class="visually-hidden rating-input" type="radio" name="rating" id="rating-4" value="4" />
+                <input class="visually-hidden rating-input" type="radio" name="rating" id="rating-4" value="4">
                 <label class="rating-star" for="rating-4"><span aria-hidden="true">&#9733;</span><span class="visually-hidden">4 stars</span></label>
-                <input class="visually-hidden rating-input" type="radio" name="rating" id="rating-5" value="5" />
+                <input class="visually-hidden rating-input" type="radio" name="rating" id="rating-5" value="5">
                 <label class="rating-star" for="rating-5"><span aria-hidden="true">&#9733;</span><span class="visually-hidden">5 stars</span></label>
               </div>
               <p class="helper" id="review-rating-help">Choose a rating from 1 to 5 stars.</p>
@@ -101,11 +101,37 @@
                 aria-describedby="review-text-help review-text-error"
                 required
               ></textarea>
-              <p class="helper" id="review-text-help">Keep it respectful and specific. Up to 600 characters.</p>
+              <div class="review-text-meta">
+                <p class="helper" id="review-text-help">Keep it respectful and specific. Up to 600 characters.</p>
+                <p class="review-char-count" id="review-char-count" aria-live="polite">0 / 600</p>
+              </div>
               <p class="field-error" id="review-text-error" hidden></p>
             </div>
             <button type="submit" class="btn btn-primary">Submit Review</button>
           </form>
+        </div>
+      </section>
+
+      <section class="section" style="padding-top: 0;">
+        <div class="container">
+          <h2 class="visually-hidden">Review summary</h2>
+          <div class="review-insights reveal">
+            <article class="review-metric">
+              <h3 class="review-metric-label">Average rating</h3>
+              <strong id="review-average-rating">0.0</strong>
+              <span id="review-average-caption">Community sentiment updates as reviews are submitted.</span>
+            </article>
+            <article class="review-metric">
+              <h3 class="review-metric-label">Total reviews</h3>
+              <strong id="review-total-count">0</strong>
+              <span id="review-total-caption">Stored in this browser for the prototype experience.</span>
+            </article>
+            <article class="review-metric">
+              <h3 class="review-metric-label">Latest spotlight</h3>
+              <strong id="review-latest-book">No reviews yet</strong>
+              <span id="review-latest-caption">Submit the next recommendation for the shelf.</span>
+            </article>
+          </div>
         </div>
       </section>
 
@@ -116,6 +142,20 @@
               <h2 class="section-title">Community Reviews</h2>
               <p class="section-text">Recent reviews from fellow Pagemark readers.</p>
             </div>
+          </div>
+
+          <div class="review-toolbar reveal">
+            <div class="review-filter">
+              <label for="review-sort">Browse reviews</label>
+              <select id="review-sort" aria-describedby="review-sort-help">
+                <option value="recent">Most recent first</option>
+                <option value="highest">Highest rated first</option>
+                <option value="lowest">Lowest rated first</option>
+                <option value="five-star">Only 5-star reviews</option>
+              </select>
+              <p class="helper" id="review-sort-help">Change the order or narrow the list without leaving the page.</p>
+            </div>
+            <p class="results-count" id="review-results-count" aria-live="polite"></p>
           </div>
 
           <div id="reviews-list" class="reviews-list">
