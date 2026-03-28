@@ -1578,6 +1578,15 @@
       charCount.classList.toggle('is-near-limit', max - current <= 80);
     }
 
+    function setHoveredRating(value) {
+      ratingLabels.forEach(function (label) {
+        var inputId = label.getAttribute('for');
+        var input = inputId ? document.getElementById(inputId) : null;
+        var inputValue = input ? (parseInt(input.value, 10) || 0) : 0;
+        label.classList.toggle('active', inputValue > 0 && inputValue <= value);
+      });
+    }
+
     ratingLabels.forEach(function (label) {
       label.addEventListener('mouseenter', function () {
         var inputId = label.getAttribute('for');
