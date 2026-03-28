@@ -26,15 +26,23 @@ if (request_method() === 'POST') {
             redirect_with_query('signup.php', $redirectParams + ['auth_error' => 'duplicate_email']);
         }
 
-        $insertStatement = db()->prepare(
-            'INSERT INTO users (name, email, password_hash, role) VALUES (?, ?, ?, ?)'
-        );
-        $insertStatement->execute([
-            $name,
-            $email,
-            password_hash($password, PASSWORD_DEFAULT),
-            'customer',
-        ]);
+        try {
+            $insertStatement = db()->prepare(
+                'INSERT INTO users (name, email, password_hash, role) VALUES (?, ?, ?, ?)'
+            );
+            $insertStatement->execute([
+                $name,
+                $email,
+                password_hash($password, PASSWORD_DEFAULT),
+                'customer',
+            ]);
+        } catch (Throwable $error) {
+            if (is_unique_constraint_violation($error)) {
+                redirect_with_query('signup.php', $redirectParams + ['auth_error' => 'duplicate_email']);
+            }
+
+            throw $error;
+        }
 
         log_security_event('signup_success', ['email' => $email]);
         redirect_with_query('login.php', [
