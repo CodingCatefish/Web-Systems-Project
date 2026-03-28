@@ -3,6 +3,18 @@ declare(strict_types=1);
 
 const SESSION_MAX_AGE_SECONDS = 43200;
 
+function env_flag(string $name): bool
+{
+    $value = getenv($name);
+    if (!is_string($value)) {
+        return false;
+    }
+
+    $normalized = strtolower(trim($value));
+
+    return in_array($normalized, ['1', 'true', 'yes', 'on'], true);
+}
+
 function app_is_production(): bool
 {
     static $isProduction = null;
@@ -15,6 +27,11 @@ function app_is_production(): bool
     $isProduction = strtolower($environment) === 'production';
 
     return $isProduction;
+}
+
+function app_show_reset_debug_link(): bool
+{
+    return env_flag('SHOW_RESET_DEBUG_LINK');
 }
 
 function is_secure_request(): bool
@@ -162,28 +179,67 @@ function no_cache(): void
     header('Cache-Control: no-store');
 }
 
+function trusted_proxy_addresses(): array
+{
+    static $trustedProxies = null;
+
+    if (is_array($trustedProxies)) {
+        return $trustedProxies;
+    }
+
+    $configured = trim((string) (getenv('TRUSTED_PROXY_IPS') ?: ''));
+    if ($configured === '') {
+        $trustedProxies = [];
+        return $trustedProxies;
+    }
+
+    $trustedProxies = [];
+
+    foreach (explode(',', $configured) as $candidate) {
+        $candidate = trim($candidate);
+        if (filter_var($candidate, FILTER_VALIDATE_IP) !== false) {
+            $trustedProxies[] = $candidate;
+        }
+    }
+
+    return $trustedProxies;
+}
+
+function normalize_ip_address(string $value): string
+{
+    $value = trim($value);
+    if ($value === '') {
+        return '';
+    }
+
+    $validated = filter_var($value, FILTER_VALIDATE_IP);
+
+    return is_string($validated) ? $validated : '';
+}
+
 function client_ip(): string
 {
-    $candidateHeaders = [
-        'HTTP_CF_CONNECTING_IP',
-        'HTTP_X_FORWARDED_FOR',
-        'REMOTE_ADDR',
-    ];
+    $remoteAddress = normalize_ip_address((string) ($_SERVER['REMOTE_ADDR'] ?? ''));
+    $trustedProxies = trusted_proxy_addresses();
 
-    foreach ($candidateHeaders as $header) {
-        $value = trim((string) ($_SERVER[$header] ?? ''));
-        if ($value === '') {
-            continue;
+    if ($remoteAddress !== '' && in_array($remoteAddress, $trustedProxies, true)) {
+        $cfConnectingIp = normalize_ip_address((string) ($_SERVER['HTTP_CF_CONNECTING_IP'] ?? ''));
+        if ($cfConnectingIp !== '') {
+            return $cfConnectingIp;
         }
 
-        if ($header === 'HTTP_X_FORWARDED_FOR') {
-            $parts = array_map('trim', explode(',', $value));
-            $value = (string) ($parts[0] ?? '');
+        $forwardedFor = trim((string) ($_SERVER['HTTP_X_FORWARDED_FOR'] ?? ''));
+        if ($forwardedFor !== '') {
+            $parts = array_map('trim', explode(',', $forwardedFor));
+            $forwardedIp = normalize_ip_address((string) ($parts[0] ?? ''));
+            if ($forwardedIp !== '') {
+                return $forwardedIp;
+            }
         }
+    }
 
-        if ($value !== '') {
-            return substr($value, 0, 45);
-        }
+    if ($remoteAddress !== '') {
+        return $remoteAddress;
     }
 
     return 'unknown';

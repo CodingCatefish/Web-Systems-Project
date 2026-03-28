@@ -544,6 +544,21 @@ function clear_login_rate_limit_state(string $email, string $ipAddress): void
     }
 }
 
+function is_unique_constraint_violation(Throwable $error): bool
+{
+    if (!$error instanceof PDOException) {
+        return false;
+    }
+
+    if ((string) $error->getCode() === '23000') {
+        return true;
+    }
+
+    $errorInfo = $error->errorInfo ?? null;
+
+    return is_array($errorInfo) && (string) ($errorInfo[0] ?? '') === '23000';
+}
+
 function create_password_reset(string $email): ?string
 {
     $user = find_user_by_email($email);
@@ -592,7 +607,7 @@ function create_password_reset(string $email): ?string
         throw $error;
     }
 
-    if (!app_is_production()) {
+    if (app_show_reset_debug_link()) {
         $debugLink = absolute_url('reset-password.php', ['token' => $token]);
     }
 
@@ -640,25 +655,33 @@ function password_reset_status(string $token): string
 
 function reset_password_with_token(string $token, string $password): string
 {
-    $reset = find_valid_password_reset($token);
     $pdo = null;
-
-    if ($reset === null) {
-        return 'invalid_reset_token';
-    }
-
-    if (!empty($reset['used_at'])) {
-        return 'invalid_reset_token';
-    }
-
-    $expiresAt = strtotime((string) ($reset['expires_at'] ?? ''));
-    if ($expiresAt === false || $expiresAt < time()) {
-        return 'expired_reset_token';
-    }
 
     try {
         $pdo = db();
         $pdo->beginTransaction();
+
+        $resetStatement = $pdo->prepare(
+            'SELECT pr.id, pr.user_id, pr.expires_at, pr.used_at, u.email
+             FROM password_resets pr
+             INNER JOIN users u ON u.id = pr.user_id
+             WHERE pr.token_hash = ?
+             LIMIT 1
+             FOR UPDATE'
+        );
+        $resetStatement->execute([hash('sha256', $token)]);
+        $reset = $resetStatement->fetch();
+
+        if (!is_array($reset) || !empty($reset['used_at'])) {
+            $pdo->rollBack();
+            return 'invalid_reset_token';
+        }
+
+        $expiresAt = strtotime((string) ($reset['expires_at'] ?? ''));
+        if ($expiresAt === false || $expiresAt < time()) {
+            $pdo->rollBack();
+            return 'expired_reset_token';
+        }
 
         $updatePassword = $pdo->prepare('UPDATE users SET password_hash = ? WHERE id = ?');
         $updatePassword->execute([
@@ -666,8 +689,17 @@ function reset_password_with_token(string $token, string $password): string
             (int) $reset['user_id'],
         ]);
 
-        $markUsed = $pdo->prepare('UPDATE password_resets SET used_at = UTC_TIMESTAMP() WHERE id = ?');
+        $markUsed = $pdo->prepare(
+            'UPDATE password_resets
+             SET used_at = UTC_TIMESTAMP()
+             WHERE id = ? AND used_at IS NULL AND expires_at >= UTC_TIMESTAMP()'
+        );
         $markUsed->execute([(int) $reset['id']]);
+
+        if ($markUsed->rowCount() !== 1) {
+            $pdo->rollBack();
+            return 'expired_reset_token';
+        }
 
         $clearAttempts = $pdo->prepare('DELETE FROM login_attempts WHERE email = ?');
         $clearAttempts->execute([(string) $reset['email']]);

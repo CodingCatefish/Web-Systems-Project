@@ -55,7 +55,11 @@ $debugLink = flash_get('password_reset_debug_link');
             <h1>Reset your <span>Pagemark</span> password</h1>
         </div>
         <p class="auth-subtitle">Enter your account email and we will prepare a password reset link.</p>
-        <p class="auth-notice">In this development flow, the reset link is shown on-screen instead of being emailed.</p>
+        <p class="auth-notice">
+            <?= app_show_reset_debug_link()
+                ? 'Reset links are shown on-screen because debug reset links are enabled for this environment.'
+                : 'Reset links are not shown on-screen in this environment.' ?>
+        </p>
 
         <div class="form-status" id="forgot-password-status" aria-live="polite"><?= e($feedback['status']) ?></div>
         <form class="auth-form" id="forgot-password-form" action="forgot-password.php" method="post" novalidate>
@@ -83,7 +87,7 @@ $debugLink = flash_get('password_reset_debug_link');
 
         <?php if (is_string($debugLink) && $debugLink !== ''): ?>
             <section class="auth-debug-link" aria-labelledby="reset-link-title">
-                <h2 id="reset-link-title">Development reset link</h2>
+                <h2 id="reset-link-title">Reset link</h2>
                 <p>Open this link to choose a new password:</p>
                 <p><a href="<?= e($debugLink) ?>"><?= e($debugLink) ?></a></p>
             </section>

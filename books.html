@@ -1,11 +1,11 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="Pagemark View Books page - browse books across genres and search by title or author." />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Pagemark View Books page - browse books across genres and search by title or author.">
   <title>Pagemark - View Books</title>
-  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="stylesheet" href="css/styles.css">
   <style>
     .book-actions {
       display: flex;
@@ -422,7 +422,7 @@
               <div class="search-actions">
                 <label class="search-wrap" for="book-search">
                   <span class="visually-hidden">Search books by title or author</span>
-                  <input id="book-search" type="text" placeholder="Search books or authors" aria-label="Search books by title or author" autocomplete="off" />
+                  <input id="book-search" type="text" placeholder="Search books or authors" aria-label="Search books by title or author" autocomplete="off">
                 </label>
                 <button class="btn-mini filter-reset" id="clear-filters" type="button" aria-label="Clear search and reset all filters">Clear</button>
               </div>
@@ -544,9 +544,9 @@
       </div>
 
       <div class="details-modal__panels">
-        <section class="details-modal__panel" id="details-panel" role="tabpanel" aria-labelledby="details-tab">
+        <div class="details-modal__panel" id="details-panel" role="tabpanel" aria-labelledby="details-tab">
           <div class="details-grid">
-            <div class="details-cover"><img id="book-details-cover" src="data:image/gif;base64,R0lGODlhAQABAAAAACw=" alt="" /></div>
+            <div class="details-cover"><img id="book-details-cover" src="data:image/gif;base64,R0lGODlhAQABAAAAACw=" alt=""></div>
             <div class="details-meta">
               <div class="details-meta__stats">
                 <div class="details-stat"><span>Author</span><strong id="book-details-author"></strong></div>
@@ -560,9 +560,9 @@
               </div>
             </div>
           </div>
-        </section>
+        </div>
 
-        <section class="details-modal__panel" id="preview-panel" role="tabpanel" aria-labelledby="preview-tab" hidden>
+        <div class="details-modal__panel" id="preview-panel" role="tabpanel" aria-labelledby="preview-tab" hidden>
           <div class="preview-frame">
             <div class="preview-frame__screen">
               <div class="preview-frame__header">
@@ -576,7 +576,7 @@
               <div class="preview-frame__body" id="book-preview-body"></div>
             </div>
           </div>
-        </section>
+        </div>
       </div>
 
       <p class="details-modal__footer">Use Escape or click outside the dialog to close.</p>

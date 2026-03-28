@@ -9,6 +9,8 @@
   var bagOpenTrigger = null;
   var bagCloseTimer = null;
   var sessionRequest = null;
+  var latestReviewKey = '';
+  document.documentElement.classList.add('js-reveal');
 
   function setActiveNavLink() {
     var current = window.location.pathname.split('/').pop() || 'index.html';
@@ -26,6 +28,114 @@
     document.querySelectorAll('.js-year').forEach(function (el) {
       el.textContent = year;
     });
+  }
+
+  function initHeaderState() {
+    var header = document.querySelector('.site-header');
+    if (!header) return;
+
+    function syncHeaderState() {
+      header.classList.toggle('site-header-scrolled', window.scrollY > 12);
+    }
+
+    syncHeaderState();
+    window.addEventListener('scroll', syncHeaderState, { passive: true });
+  }
+
+  function initResponsiveNav() {
+    var nav = document.querySelector('.nav-links');
+    var headerRow = document.querySelector('.header-row');
+    if (!nav || !headerRow || headerRow.querySelector('.nav-toggle')) return;
+
+    var navId = nav.id || 'site-nav';
+    var media = window.matchMedia('(max-width: 960px)');
+    var toggle = document.createElement('button');
+
+    nav.id = navId;
+    toggle.type = 'button';
+    toggle.className = 'nav-toggle';
+    toggle.setAttribute('aria-controls', navId);
+    toggle.setAttribute('aria-expanded', 'false');
+    toggle.setAttribute('aria-label', 'Toggle navigation');
+    toggle.innerHTML =
+      '<span class="nav-toggle-bar" aria-hidden="true"></span>' +
+      '<span class="nav-toggle-bar" aria-hidden="true"></span>' +
+      '<span class="nav-toggle-label">Menu</span>';
+
+    headerRow.insertBefore(toggle, nav);
+
+    function closeNav(restoreFocus) {
+      nav.classList.remove('is-open');
+      headerRow.classList.remove('nav-open');
+      toggle.setAttribute('aria-expanded', 'false');
+      nav.setAttribute('aria-hidden', 'true');
+      if (restoreFocus) {
+        toggle.focus();
+      }
+    }
+
+    function openNav() {
+      nav.classList.add('is-open');
+      headerRow.classList.add('nav-open');
+      toggle.setAttribute('aria-expanded', 'true');
+      nav.setAttribute('aria-hidden', 'false');
+    }
+
+    function syncNavMode() {
+      if (!media.matches) {
+        nav.classList.remove('is-open');
+        headerRow.classList.remove('nav-open');
+        toggle.setAttribute('aria-expanded', 'false');
+        toggle.hidden = true;
+        nav.removeAttribute('aria-hidden');
+        return;
+      }
+
+      toggle.hidden = false;
+      if (toggle.getAttribute('aria-expanded') !== 'true') {
+        nav.classList.remove('is-open');
+        headerRow.classList.remove('nav-open');
+        nav.setAttribute('aria-hidden', 'true');
+      }
+    }
+
+    toggle.addEventListener('click', function () {
+      var isOpen = toggle.getAttribute('aria-expanded') === 'true';
+      if (isOpen) {
+        closeNav(false);
+      } else {
+        openNav();
+      }
+    });
+
+    nav.addEventListener('click', function (event) {
+      if (!media.matches) return;
+
+      if (event.target.closest('a, button')) {
+        closeNav(false);
+      }
+    });
+
+    document.addEventListener('click', function (event) {
+      if (!media.matches || toggle.getAttribute('aria-expanded') !== 'true') return;
+      if (headerRow.contains(event.target)) return;
+
+      closeNav(false);
+    });
+
+    document.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape' && media.matches && toggle.getAttribute('aria-expanded') === 'true') {
+        closeNav(true);
+      }
+    });
+
+    if (typeof media.addEventListener === 'function') {
+      media.addEventListener('change', syncNavMode);
+    } else if (typeof media.addListener === 'function') {
+      media.addListener(syncNavMode);
+    }
+
+    syncNavMode();
   }
 
   function isValidEmail(value) {
@@ -1252,13 +1362,23 @@
       localStorage.setItem(REVIEWS_KEY, JSON.stringify(defaultReviews));
       return defaultReviews.slice();
     }
-    return JSON.parse(stored);
+
+    try {
+      var parsed = JSON.parse(stored);
+      return Array.isArray(parsed) ? parsed : defaultReviews.slice();
+    } catch (err) {
+      return defaultReviews.slice();
+    }
   }
 
   function saveReview(review) {
     var reviews = getReviews();
     reviews.unshift(review);
     localStorage.setItem(REVIEWS_KEY, JSON.stringify(reviews));
+  }
+
+  function getReviewKey(review) {
+    return [review.name || '', review.book || '', review.date || '', review.text || ''].join('||');
   }
 
   function renderStars(rating) {
@@ -1269,31 +1389,127 @@
     return html;
   }
 
+  function formatReviewDate(value) {
+    var parsed = new Date(String(value || '') + 'T00:00:00');
+    if (Number.isNaN(parsed.getTime())) {
+      return value || '';
+    }
+
+    return parsed.toLocaleDateString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
+  }
+
+  function sortReviews(reviews, mode) {
+    var ordered = reviews.slice();
+
+    function getTime(review) {
+      return new Date(String(review.date || '') + 'T00:00:00').getTime() || 0;
+    }
+
+    if (mode === 'highest') {
+      ordered.sort(function (a, b) {
+        return (b.rating - a.rating) || (getTime(b) - getTime(a));
+      });
+      return ordered;
+    }
+
+    if (mode === 'lowest') {
+      ordered.sort(function (a, b) {
+        return (a.rating - b.rating) || (getTime(b) - getTime(a));
+      });
+      return ordered;
+    }
+
+    if (mode === 'five-star') {
+      ordered = ordered.filter(function (review) {
+        return parseInt(review.rating, 10) === 5;
+      });
+    }
+
+    ordered.sort(function (a, b) {
+      return getTime(b) - getTime(a);
+    });
+
+    return ordered;
+  }
+
+  function updateReviewInsights(reviews) {
+    var averageEl = document.getElementById('review-average-rating');
+    var averageCaption = document.getElementById('review-average-caption');
+    var totalEl = document.getElementById('review-total-count');
+    var totalCaption = document.getElementById('review-total-caption');
+    var latestBookEl = document.getElementById('review-latest-book');
+    var latestCaption = document.getElementById('review-latest-caption');
+    if (!averageEl || !averageCaption || !totalEl || !totalCaption || !latestBookEl || !latestCaption) return;
+
+    if (!reviews.length) {
+      averageEl.textContent = '0.0';
+      averageCaption.textContent = 'Community sentiment updates as reviews are submitted.';
+      totalEl.textContent = '0';
+      totalCaption.textContent = 'Stored in this browser for the prototype experience.';
+      latestBookEl.textContent = 'No reviews yet';
+      latestCaption.textContent = 'Submit the next recommendation for the shelf.';
+      return;
+    }
+
+    var ordered = sortReviews(reviews, 'recent');
+    var average = reviews.reduce(function (sum, review) {
+      return sum + (parseInt(review.rating, 10) || 0);
+    }, 0) / reviews.length;
+
+    averageEl.textContent = average.toFixed(1);
+    averageCaption.textContent = average >= 4.5 ? 'Readers are strongly recommending titles from this shelf.' : 'The shelf has a healthy mix of opinions and favorites.';
+    totalEl.textContent = String(reviews.length);
+    totalCaption.textContent = reviews.length === 1 ? 'One reader has added a review in this browser.' : reviews.length + ' reader reviews are available in this browser.';
+    latestBookEl.textContent = ordered[0].book || 'Recently reviewed title';
+    latestCaption.textContent = 'Most recent review by ' + (ordered[0].name || 'a reader') + ' on ' + formatReviewDate(ordered[0].date) + '.';
+  }
+
   function renderReviews() {
     var list = document.getElementById('reviews-list');
     var noMsg = document.getElementById('no-reviews');
+    var resultsCount = document.getElementById('review-results-count');
+    var sortSelect = document.getElementById('review-sort');
     if (!list) return;
 
-    var reviews = getReviews();
+    var allReviews = getReviews();
+    var mode = sortSelect ? sortSelect.value : 'recent';
+    var reviews = sortReviews(allReviews, mode);
+
+    updateReviewInsights(allReviews);
 
     if (reviews.length === 0) {
       list.innerHTML = '';
-      if (noMsg) noMsg.style.display = 'block';
+      if (noMsg) {
+        noMsg.textContent = mode === 'five-star' ? 'No 5-star reviews match this filter yet.' : 'No reviews yet. Be the first to share your thoughts!';
+        noMsg.style.display = 'block';
+      }
+      if (resultsCount) {
+        resultsCount.textContent = 'Showing 0 reviews';
+      }
       return;
     }
 
     if (noMsg) noMsg.style.display = 'none';
+    if (resultsCount) {
+      resultsCount.textContent = 'Showing ' + reviews.length + ' review' + (reviews.length === 1 ? '' : 's');
+    }
 
     list.innerHTML = reviews.map(function (r) {
-      return '<article class="review-card reveal">' +
+      var classes = 'review-card reveal' + (getReviewKey(r) === latestReviewKey ? ' is-new' : '');
+      var ratingValue = parseInt(r.rating, 10) || 0;
+      return '<article class="' + classes + '">' +
         '<div class="review-header">' +
           '<h3 class="review-book-title">' + escapeHtml(r.book) + '</h3>' +
-          '<span class="review-stars">' + renderStars(r.rating) + '</span>' +
+          '<p class="review-stars"><span aria-hidden="true">' + renderStars(ratingValue) + '</span><span class="visually-hidden">' + ratingValue + ' out of 5 stars</span></p>' +
         '</div>' +
         '<p class="review-body">' + escapeHtml(r.text) + '</p>' +
         '<div class="review-footer">' +
           '<span class="review-author">' + escapeHtml(r.name) + '</span>' +
-          '<span>' + r.date + '</span>' +
+          '<span class="review-date">' + escapeHtml(formatReviewDate(r.date)) + '</span>' +
         '</div>' +
       '</article>';
     }).join('');
@@ -1314,6 +1530,9 @@
     var summary = document.getElementById('review-form-errors');
     var status = document.getElementById('review-form-status');
     var ratingError = document.getElementById('review-rating-error');
+    var textInput = document.getElementById('review-text');
+    var charCount = document.getElementById('review-char-count');
+    var sortSelect = document.getElementById('review-sort');
 
     if (!form || !starInput) return;
 
@@ -1338,13 +1557,25 @@
         input.checked = parseInt(input.value, 10) === value;
       });
 
+      highlightRating(value);
+    }
+
+    function highlightRating(value) {
       ratingLabels.forEach(function (label) {
         var inputId = label.getAttribute('for');
         var input = inputId ? document.getElementById(inputId) : null;
         var inputValue = input ? (parseInt(input.value, 10) || 0) : 0;
         label.classList.toggle('active', inputValue > 0 && inputValue <= value);
       });
+    }
 
+    function updateCharCount() {
+      if (!textInput || !charCount) return;
+
+      var current = textInput.value.length;
+      var max = parseInt(textInput.getAttribute('maxlength') || '600', 10) || 600;
+      charCount.textContent = current + ' / ' + max;
+      charCount.classList.toggle('is-near-limit', max - current <= 80);
     }
 
     function setHoveredRating(value) {
@@ -1361,7 +1592,7 @@
         var inputId = label.getAttribute('for');
         var input = inputId ? document.getElementById(inputId) : null;
         var val = input ? (parseInt(input.value, 10) || 0) : 0;
-        setHoveredRating(val);
+        highlightRating(val);
       });
     });
 
@@ -1385,7 +1616,6 @@
 
       var nameInput = document.getElementById('review-name');
       var bookInput = document.getElementById('review-book');
-      var textInput = document.getElementById('review-text');
       var name = nameInput.value.trim();
       var book = bookInput.value.trim();
       var rating = getSelectedRating();
@@ -1403,7 +1633,11 @@
       }
 
       if (rating < 1) {
-        errors.push({ errorEl: ratingError, message: 'Please choose a rating from 1 to 5 stars.' });
+        errors.push({
+          input: ratingInputs.length ? ratingInputs[0] : null,
+          errorEl: ratingError,
+          message: 'Please choose a rating from 1 to 5 stars.'
+        });
       }
 
       if (!text) {
@@ -1419,11 +1653,14 @@
       var dateStr = today.getFullYear() + '-' +
         String(today.getMonth() + 1).padStart(2, '0') + '-' +
         String(today.getDate()).padStart(2, '0');
+      var review = { name: name, book: book, rating: rating, text: text, date: dateStr };
 
-      saveReview({ name: name, book: book, rating: rating, text: text, date: dateStr });
+      saveReview(review);
+      latestReviewKey = getReviewKey(review);
 
       form.reset();
       setSelectedRating(0);
+      updateCharCount();
       if (status) {
         status.textContent = 'Review submitted for this browser.';
       }
@@ -1432,13 +1669,30 @@
       renderReviews();
     });
 
+    if (textInput) {
+      textInput.addEventListener('input', updateCharCount);
+    }
+
+    if (sortSelect) {
+      sortSelect.addEventListener('change', renderReviews);
+    }
+
     setSelectedRating(getSelectedRating());
+    updateCharCount();
     renderReviews();
   }
 
   function initReveal() {
     var targets = document.querySelectorAll('.reveal');
     if (!targets.length) return;
+
+    var prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (prefersReducedMotion || typeof IntersectionObserver !== 'function') {
+      targets.forEach(function (target) {
+        target.classList.add('visible');
+      });
+      return;
+    }
 
     var observer = new IntersectionObserver(function (entries) {
       entries.forEach(function (entry) {
@@ -1456,6 +1710,8 @@
 
   document.addEventListener('DOMContentLoaded', function () {
     setActiveNavLink();
+    initHeaderState();
+    initResponsiveNav();
     initSessionNav();
     updateYear();
     updateCartCount();
