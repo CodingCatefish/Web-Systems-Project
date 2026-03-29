@@ -15,16 +15,20 @@ if (request_method() === 'POST') {
             redirect_with_query('forgot-password.php', $redirectParams + ['auth_error' => $validationError]);
         }
 
-        $debugLink = create_password_reset($email);
-        if ($debugLink !== null) {
-            flash_set('password_reset_debug_link', $debugLink);
-        }
+        create_password_reset($email);
 
         redirect_with_query('forgot-password.php', [
             'auth_notice' => 'password_reset_requested',
             'email' => $email,
         ]);
     } catch (Throwable $error) {
+        if ($error instanceof RuntimeException && $error->getMessage() === 'password_reset_rate_limited') {
+            redirect_with_query('forgot-password.php', [
+                'auth_error' => 'password_reset_rate_limited',
+                'email' => $email ?? '',
+            ]);
+        }
+
         log_server_error('forgot-password', $error);
         redirect_with_query('forgot-password.php', [
             'auth_error' => 'server_error',
@@ -37,7 +41,6 @@ $feedback = get_auth_feedback('forgot-password');
 $emailValue = auth_feedback_value($feedback, 'email');
 $emailError = auth_feedback_field_error($feedback, 'email');
 $summaryVisible = $feedback['summary'] !== '';
-$debugLink = flash_get('password_reset_debug_link');
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -57,7 +60,7 @@ $debugLink = flash_get('password_reset_debug_link');
         <p class="auth-subtitle">Enter your account email and we will prepare a password reset link.</p>
         <p class="auth-notice">
             <?= app_show_reset_debug_link()
-                ? 'Reset links are shown on-screen because debug reset links are enabled for this environment.'
+                ? 'Reset links are written to the server log because debug reset links are enabled for this environment.'
                 : 'Reset links are not shown on-screen in this environment.' ?>
         </p>
 
@@ -84,15 +87,6 @@ $debugLink = flash_get('password_reset_debug_link');
 
             <button class="auth-submit" type="submit">Create reset link</button>
         </form>
-
-        <?php if (is_string($debugLink) && $debugLink !== ''): ?>
-            <section class="auth-debug-link" aria-labelledby="reset-link-title">
-                <h2 id="reset-link-title">Reset link</h2>
-                <p>Open this link to choose a new password:</p>
-                <p><a href="<?= e($debugLink) ?>"><?= e($debugLink) ?></a></p>
-            </section>
-        <?php endif; ?>
-
         <p class="auth-footer-text">
             Remembered your password?
             <a href="login.php">Back to login</a>

@@ -235,7 +235,7 @@
     }
 
     var url = new URL(window.location.href);
-    ['auth_error', 'auth_notice', 'email', 'name', 'retry_after'].forEach(function (key) {
+    ['auth_error', 'auth_notice', 'email', 'name', 'retry_after', 'token'].forEach(function (key) {
       url.searchParams.delete(key);
     });
 
@@ -374,6 +374,9 @@
           },
           server_error: {
             summary: 'We could not start a password reset right now. Please try again.'
+          },
+          password_reset_rate_limited: {
+            summary: 'Too many password reset requests were made. Please wait before trying again.'
           }
         },
         notices: {

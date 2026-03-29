@@ -6,6 +6,11 @@ require_once __DIR__ . '/bootstrap.php';
 const LOGIN_RATE_LIMIT_MAX_ATTEMPTS = 5;
 const LOGIN_RATE_LIMIT_WINDOW_SECONDS = 900;
 const PASSWORD_RESET_TTL_SECONDS = 3600;
+const PASSWORD_RESET_REQUEST_LIMIT_PER_EMAIL = 3;
+const PASSWORD_RESET_REQUEST_LIMIT_PER_IP = 5;
+const PASSWORD_RESET_REQUEST_WINDOW_SECONDS = 3600;
+const PASSWORD_RESET_CLEANUP_RETENTION_SECONDS = 604800;
+const PASSWORD_RESET_SESSION_TOKEN_KEY = 'password_reset_token';
 
 function normalize_email(string $value): string
 {
@@ -218,6 +223,9 @@ function auth_feedback_catalog(string $formKey): array
                 'server_error' => [
                     'summary' => 'We could not start a password reset right now. Please try again.',
                 ],
+                'password_reset_rate_limited' => [
+                    'summary' => 'Too many password reset requests were made. Please wait before trying again.',
+                ],
             ],
             'notices' => [
                 'password_reset_requested' => 'If an account exists for that email, a reset link is ready.',
@@ -427,6 +435,28 @@ function clear_session(): void
     }
 }
 
+function set_active_password_reset_token(string $token): void
+{
+    if ($token === '') {
+        clear_active_password_reset_token();
+        return;
+    }
+
+    $_SESSION[PASSWORD_RESET_SESSION_TOKEN_KEY] = $token;
+}
+
+function active_password_reset_token(): string
+{
+    $token = $_SESSION[PASSWORD_RESET_SESSION_TOKEN_KEY] ?? '';
+
+    return is_string($token) ? $token : '';
+}
+
+function clear_active_password_reset_token(): void
+{
+    unset($_SESSION[PASSWORD_RESET_SESSION_TOKEN_KEY]);
+}
+
 function handle_csrf_failure(string $redirectPath, array $params = [], string $errorCode = 'csrf_invalid_token'): never
 {
     $params['auth_error'] = $errorCode;
@@ -544,6 +574,107 @@ function clear_login_rate_limit_state(string $email, string $ipAddress): void
     }
 }
 
+function cleanup_password_reset_records(): void
+{
+    try {
+        $statement = db()->prepare(
+            'DELETE FROM password_resets
+             WHERE (used_at IS NOT NULL AND used_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL ? SECOND))
+                OR (used_at IS NULL AND expires_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL ? SECOND))'
+        );
+        $statement->execute([
+            PASSWORD_RESET_CLEANUP_RETENTION_SECONDS,
+            PASSWORD_RESET_CLEANUP_RETENTION_SECONDS,
+        ]);
+    } catch (Throwable $error) {
+        log_server_error('password-reset-cleanup', $error);
+    }
+}
+
+function cleanup_password_reset_request_attempts(): void
+{
+    try {
+        $statement = db()->prepare(
+            'DELETE FROM password_reset_request_attempts
+             WHERE last_attempt_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL ? SECOND)'
+        );
+        $statement->execute([PASSWORD_RESET_REQUEST_WINDOW_SECONDS]);
+    } catch (Throwable $error) {
+        log_server_error('password-reset-attempt-cleanup', $error);
+    }
+}
+
+function password_reset_request_rate_limit_state(string $email, string $ipAddress): array
+{
+    $state = [
+        'limited' => false,
+        'email_count' => 0,
+        'ip_count' => 0,
+    ];
+
+    if ($email === '' || $ipAddress === '') {
+        return $state;
+    }
+
+    try {
+        cleanup_password_reset_request_attempts();
+
+        $statement = db()->prepare(
+            'SELECT
+                COALESCE(SUM(CASE WHEN email = ? THEN attempt_count ELSE 0 END), 0) AS email_count,
+                COALESCE(SUM(CASE WHEN ip_address = ? THEN attempt_count ELSE 0 END), 0) AS ip_count
+             FROM password_reset_request_attempts'
+        );
+        $statement->execute([
+            $email,
+            $ipAddress,
+        ]);
+        $row = $statement->fetch();
+
+        if (!is_array($row)) {
+            return $state;
+        }
+
+        $emailCount = (int) ($row['email_count'] ?? 0);
+        $ipCount = (int) ($row['ip_count'] ?? 0);
+
+        return [
+            'limited' => $emailCount >= PASSWORD_RESET_REQUEST_LIMIT_PER_EMAIL || $ipCount >= PASSWORD_RESET_REQUEST_LIMIT_PER_IP,
+            'email_count' => $emailCount,
+            'ip_count' => $ipCount,
+        ];
+    } catch (Throwable $error) {
+        log_server_error('password-reset-rate-limit-read', $error);
+        return $state;
+    }
+}
+
+function record_password_reset_request_attempt(string $email, string $ipAddress): void
+{
+    if ($email === '' || $ipAddress === '') {
+        return;
+    }
+
+    try {
+        $statement = db()->prepare(
+            'UPDATE password_reset_request_attempts
+             SET attempt_count = attempt_count + 1, last_attempt_at = UTC_TIMESTAMP()
+             WHERE email = ? AND ip_address = ?'
+        );
+        $statement->execute([$email, $ipAddress]);
+
+        if ($statement->rowCount() === 0) {
+            $statement = db()->prepare(
+                'INSERT INTO password_reset_request_attempts (email, ip_address, attempt_count, first_attempt_at, last_attempt_at)
+                 VALUES (?, ?, 1, UTC_TIMESTAMP(), UTC_TIMESTAMP())'
+            );
+            $statement->execute([$email, $ipAddress]);
+        }
+    } catch (Throwable $error) {
+        log_server_error('password-reset-attempt-write', $error);
+    }
+}
+
 function is_unique_constraint_violation(Throwable $error): bool
 {
     if (!$error instanceof PDOException) {
@@ -559,20 +690,31 @@ function is_unique_constraint_violation(Throwable $error): bool
     return is_array($errorInfo) && (string) ($errorInfo[0] ?? '') === '23000';
 }
 
-function create_password_reset(string $email): ?string
+function create_password_reset(string $email): void
 {
-    $user = find_user_by_email($email);
     $pdo = null;
+    $ipAddress = client_ip();
 
     log_security_event('password_reset_requested', ['email' => $email]);
+    cleanup_password_reset_records();
 
+    $rateLimitState = password_reset_request_rate_limit_state($email, $ipAddress);
+    if ($rateLimitState['limited']) {
+        log_security_event('password_reset_request_rate_limited', [
+            'email' => $email,
+        ]);
+        throw new RuntimeException('password_reset_rate_limited');
+    }
+
+    record_password_reset_request_attempt($email, $ipAddress);
+
+    $user = find_user_by_email($email);
     if ($user === null) {
-        return null;
+        return;
     }
 
     $token = bin2hex(random_bytes(32));
     $tokenHash = hash('sha256', $token);
-    $debugLink = null;
 
     try {
         $pdo = db();
@@ -593,7 +735,7 @@ function create_password_reset(string $email): ?string
             (int) $user['id'],
             $tokenHash,
             PASSWORD_RESET_TTL_SECONDS,
-            client_ip(),
+            $ipAddress,
             substr((string) ($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 255),
         ]);
 
@@ -608,10 +750,8 @@ function create_password_reset(string $email): ?string
     }
 
     if (app_show_reset_debug_link()) {
-        $debugLink = absolute_url('reset-password.php', ['token' => $token]);
+        error_log('[password-reset-debug] ' . absolute_url('reset-password.php', ['token' => $token]));
     }
-
-    return $debugLink;
 }
 
 function find_valid_password_reset(string $token): ?array
@@ -709,6 +849,7 @@ function reset_password_with_token(string $token, string $password): string
             'user_id' => (int) $reset['user_id'],
             'email' => (string) $reset['email'],
         ]);
+        clear_active_password_reset_token();
     } catch (Throwable $error) {
         if ($pdo instanceof PDO && $pdo->inTransaction()) {
             $pdo->rollBack();
