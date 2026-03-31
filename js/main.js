@@ -138,6 +138,44 @@
     syncNavMode();
   }
 
+  function initNavSearch() {
+    var forms = document.querySelectorAll('.nav-search');
+    if (!forms.length) return;
+
+    var pageParams = new URLSearchParams(window.location.search);
+    var currentQuery = pageParams.get('search') || '';
+
+    forms.forEach(function (form) {
+      var input = form.querySelector('.nav-search__input');
+      if (!input) return;
+
+      if (currentQuery) {
+        input.value = currentQuery;
+      }
+
+      form.addEventListener('submit', function (event) {
+        var query = input.value.trim();
+        var destination = new URL(form.getAttribute('action') || 'books.html', window.location.href);
+
+        if (query) {
+          destination.searchParams.set('search', query);
+        } else {
+          destination.searchParams.delete('search');
+        }
+
+        destination.hash = 'book-search';
+        event.preventDefault();
+        window.location.assign(destination.pathname + destination.search + destination.hash);
+      });
+
+      input.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape') {
+          input.blur();
+        }
+      });
+    });
+  }
+
   function isValidEmail(value) {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || ''));
   }
@@ -554,6 +592,7 @@
     var form = document.createElement('form');
     var button = document.createElement('button');
     var tokenInput = document.createElement('input');
+    var navSearch = nav.querySelector('.nav-search');
     var cartLink = nav.querySelector('.cart-link');
 
     form.className = 'nav-inline-form nav-session-form';
@@ -570,7 +609,9 @@
     button.textContent = 'Logout';
     form.appendChild(button);
 
-    if (cartLink) {
+    if (navSearch) {
+      nav.insertBefore(form, navSearch);
+    } else if (cartLink) {
       nav.insertBefore(form, cartLink);
     } else {
       nav.appendChild(form);
@@ -1253,10 +1294,50 @@
       };
     });
 
-    var activeGenre = 'all';
-
     function normalizeFilterText(value) {
       return String(value || '').trim().toLowerCase();
+    }
+
+    function isValidGenre(value) {
+      return Array.from(chips).some(function (chip) {
+        return normalizeFilterText(chip.dataset.genre || 'all') === value;
+      });
+    }
+
+    function syncFilterState(query, genre) {
+      if (!window.history || typeof window.history.replaceState !== 'function') {
+        return;
+      }
+
+      var nextUrl = new URL(window.location.href);
+      var navSearchInputs = document.querySelectorAll('.nav-search__input');
+
+      if (query) {
+        nextUrl.searchParams.set('search', query);
+      } else {
+        nextUrl.searchParams.delete('search');
+      }
+
+      if (genre && genre !== 'all') {
+        nextUrl.searchParams.set('genre', genre);
+      } else {
+        nextUrl.searchParams.delete('genre');
+      }
+
+      navSearchInputs.forEach(function (input) {
+        input.value = query;
+      });
+
+      window.history.replaceState({}, document.title, nextUrl.pathname + nextUrl.search + nextUrl.hash);
+    }
+
+    var pageParams = new URLSearchParams(window.location.search);
+    var startingQuery = normalizeFilterText(pageParams.get('search'));
+    var startingGenre = normalizeFilterText(pageParams.get('genre'));
+    var activeGenre = isValidGenre(startingGenre) ? startingGenre : 'all';
+
+    if (startingQuery) {
+      search.value = pageParams.get('search') || '';
     }
 
     function doesBookMatch(book, query, genre) {
@@ -1275,6 +1356,7 @@
       chips.forEach(function (chip) {
         var isActive = (chip.dataset.genre || 'all') === nextGenre;
         chip.classList.toggle('active', isActive);
+        chip.setAttribute('aria-pressed', String(isActive));
       });
       activeGenre = nextGenre;
     }
@@ -1286,7 +1368,8 @@
     }
 
     function renderFilteredBooks() {
-      var query = normalizeFilterText(search.value);
+      var rawQuery = search.value.trim();
+      var query = normalizeFilterText(rawQuery);
       var matches = filterBooks(bookRecords, query, activeGenre);
       var visible = 0;
 
@@ -1303,6 +1386,7 @@
         noResults.style.display = visible === 0 ? 'block' : 'none';
       }
 
+      syncFilterState(rawQuery, activeGenre);
       updateResultsCount(visible);
     }
 
@@ -1324,8 +1408,15 @@
       });
     }
 
-    setActiveGenreChip('all');
+    setActiveGenreChip(activeGenre);
     renderFilteredBooks();
+
+    if (window.location.hash === '#book-search') {
+      window.requestAnimationFrame(function () {
+        search.focus();
+        search.select();
+      });
+    }
   }
 
   /* ── Reviews ── */
@@ -1712,6 +1803,7 @@
     setActiveNavLink();
     initHeaderState();
     initResponsiveNav();
+    initNavSearch();
     initSessionNav();
     updateYear();
     updateCartCount();
