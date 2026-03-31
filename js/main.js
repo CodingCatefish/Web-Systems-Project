@@ -3,6 +3,7 @@
 
   var CART_KEY = 'inkwell_cart_count';
   var BAG_ITEMS_KEY = 'inkwell_bag_items';
+  var NAV_SEARCH_KEY = 'pagemark_nav_search_query';
   var BAG_OVERLAY_ID = 'bag-overlay';
   var BAG_CLOSE_SELECTOR = '[data-bag-close]';
   var bagOverlayEl = null;
@@ -143,19 +144,45 @@
     if (!forms.length) return;
 
     var pageParams = new URLSearchParams(window.location.search);
-    var currentQuery = pageParams.get('search') || '';
+    var currentQuery = pageParams.get('search') || getStoredNavSearchQuery();
 
     forms.forEach(function (form) {
       var input = form.querySelector('.nav-search__input');
+      var button = form.querySelector('.nav-search__button');
       if (!input) return;
 
       if (currentQuery) {
         input.value = currentQuery;
       }
 
+      function syncExpandedState() {
+        form.classList.toggle('is-engaged', document.activeElement === input || !!input.value.trim());
+      }
+
+      syncExpandedState();
+
+      if (button) {
+        button.addEventListener('click', function (event) {
+          if (input.value.trim() || document.activeElement === input) {
+            return;
+          }
+
+          event.preventDefault();
+          form.classList.add('is-engaged');
+          input.focus();
+        });
+      }
+
+      form.addEventListener('focusin', syncExpandedState);
+      form.addEventListener('focusout', function () {
+        window.setTimeout(syncExpandedState, 0);
+      });
+
       form.addEventListener('submit', function (event) {
         var query = input.value.trim();
         var destination = new URL(form.getAttribute('action') || 'books.html', window.location.href);
+
+        setStoredNavSearchQuery(query);
 
         if (query) {
           destination.searchParams.set('search', query);
@@ -173,7 +200,33 @@
           input.blur();
         }
       });
+
+      input.addEventListener('input', function () {
+        setStoredNavSearchQuery(input.value);
+        syncExpandedState();
+      });
     });
+  }
+
+  function getStoredNavSearchQuery() {
+    try {
+      return sessionStorage.getItem(NAV_SEARCH_KEY) || '';
+    } catch (error) {
+      return '';
+    }
+  }
+
+  function setStoredNavSearchQuery(value) {
+    try {
+      var nextValue = String(value || '').trim();
+      if (nextValue) {
+        sessionStorage.setItem(NAV_SEARCH_KEY, nextValue);
+      } else {
+        sessionStorage.removeItem(NAV_SEARCH_KEY);
+      }
+    } catch (error) {
+      return;
+    }
   }
 
   function isValidEmail(value) {
@@ -1328,16 +1381,18 @@
         input.value = query;
       });
 
+      setStoredNavSearchQuery(query);
       window.history.replaceState({}, document.title, nextUrl.pathname + nextUrl.search + nextUrl.hash);
     }
 
     var pageParams = new URLSearchParams(window.location.search);
-    var startingQuery = normalizeFilterText(pageParams.get('search'));
+    var initialQuery = pageParams.get('search') || getStoredNavSearchQuery();
+    var startingQuery = normalizeFilterText(initialQuery);
     var startingGenre = normalizeFilterText(pageParams.get('genre'));
     var activeGenre = isValidGenre(startingGenre) ? startingGenre : 'all';
 
     if (startingQuery) {
-      search.value = pageParams.get('search') || '';
+      search.value = initialQuery;
     }
 
     function doesBookMatch(book, query, genre) {

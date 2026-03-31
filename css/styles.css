@@ -208,8 +208,33 @@ a {
 }
 
 .nav-search {
+  position: relative;
   display: inline-flex;
   align-items: center;
+  margin-inline: 0.12rem;
+  padding-inline: 0.38rem;
+}
+
+.nav-search::before,
+.nav-search::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: 1px;
+  height: 1.4rem;
+  pointer-events: none;
+  transform: translateY(-50%);
+  background: linear-gradient(180deg, transparent, rgba(26, 32, 44, 0.14), transparent);
+  opacity: 0.72;
+  transition: opacity 220ms ease;
+}
+
+.nav-search::before {
+  left: 0;
+}
+
+.nav-search::after {
+  right: 0;
 }
 
 .nav-search__shell {
@@ -222,10 +247,10 @@ a {
   height: 2.5rem;
   padding-left: 0.25rem;
   border-radius: var(--radius-pill);
-  border: 1px solid rgba(26, 32, 44, 0.08);
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(247, 242, 232, 0.88));
+  border: 1px solid rgba(26, 32, 44, 0.05);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.82), rgba(247, 242, 232, 0.72));
   box-shadow:
-    0 10px 24px rgba(26, 32, 44, 0.08),
+    0 8px 20px rgba(26, 32, 44, 0.05),
     inset 0 1px 0 rgba(255, 255, 255, 0.78);
   overflow: hidden;
   backdrop-filter: blur(12px);
@@ -238,7 +263,8 @@ a {
 }
 
 .nav-search:hover .nav-search__shell,
-.nav-search:focus-within .nav-search__shell {
+.nav-search:focus-within .nav-search__shell,
+.nav-search.is-engaged .nav-search__shell {
   width: min(17rem, 28vw);
   transform: translateY(-1px);
   border-color: rgba(26, 32, 44, 0.12);
@@ -269,7 +295,8 @@ a {
 }
 
 .nav-search:hover .nav-search__input,
-.nav-search:focus-within .nav-search__input {
+.nav-search:focus-within .nav-search__input,
+.nav-search.is-engaged .nav-search__input {
   opacity: 1;
   padding: 0 0.35rem 0 0.95rem;
   pointer-events: auto;
@@ -311,7 +338,8 @@ a {
 }
 
 .nav-search:hover .nav-search__button,
-.nav-search:focus-within .nav-search__button {
+.nav-search:focus-within .nav-search__button,
+.nav-search.is-engaged .nav-search__button {
   box-shadow: 0 14px 28px rgba(26, 32, 44, 0.24);
   transform: scale(1.02);
 }
@@ -328,6 +356,13 @@ a {
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-width: 2;
+  transition: transform 260ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+.nav-search:hover .nav-search__icon,
+.nav-search:focus-within .nav-search__icon,
+.nav-search.is-engaged .nav-search__icon {
+  transform: translateX(0.04rem) scale(1.08) rotate(-4deg);
 }
 
 a:focus-visible,
@@ -1788,7 +1823,8 @@ main {
 
   .nav-search__shell,
   .nav-search:hover .nav-search__shell,
-  .nav-search:focus-within .nav-search__shell {
+  .nav-search:focus-within .nav-search__shell,
+  .nav-search.is-engaged .nav-search__shell {
     width: 100%;
     min-height: 48px;
     transform: none;
@@ -1799,7 +1835,8 @@ main {
 
   .nav-search__input,
   .nav-search:hover .nav-search__input,
-  .nav-search:focus-within .nav-search__input {
+  .nav-search:focus-within .nav-search__input,
+  .nav-search.is-engaged .nav-search__input {
     opacity: 1;
     padding: 0 0.6rem 0 1rem;
     pointer-events: auto;
@@ -1809,6 +1846,11 @@ main {
   .nav-search__button {
     width: 2.75rem;
     height: 2.75rem;
+  }
+
+  .nav-search::before,
+  .nav-search::after {
+    display: none;
   }
 
   .nav-session-button {
