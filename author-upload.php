@@ -13,6 +13,7 @@ if (request_method() === 'POST') {
   // Check if all inputs are not null
   if($_POST["title"]==null || $_POST["price"]==null || $_POST["blurb"]==null || $image_file==null || $pdf_file==null){
     $errormsg+="You have empty input fields.\n";
+    print($errormsg);
     return;
   }
   
@@ -84,6 +85,7 @@ if (request_method() === 'POST') {
       $errormsg += "Sorry, there was an error uploading your image file.";
     }
   }
+  print($errormsg);
 }
 
 ?>
