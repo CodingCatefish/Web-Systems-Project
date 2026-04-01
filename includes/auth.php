@@ -447,7 +447,7 @@ function require_valid_form_post(string $redirectPath, array $params = []): void
 
 function find_user_by_email(string $email): ?array
 {
-    $statement = db()->prepare('SELECT id, name, email, password_hash, role FROM users WHERE email = ? LIMIT 1');
+    $statement = db()->prepare('SELECT id, name, email, password_hash, role FROM Users WHERE email = ? LIMIT 1');
     $statement->execute([$email]);
     $user = $statement->fetch();
 
@@ -469,7 +469,7 @@ function get_login_rate_limit_state(string $email, string $ipAddress): array
     try {
         $statement = db()->prepare(
             'SELECT attempt_count, UNIX_TIMESTAMP(first_attempt_at) AS first_attempt_ts
-             FROM login_attempts
+             FROM LoginAttempts
              WHERE email = ? AND ip_address = ?
              LIMIT 1'
         );
@@ -512,14 +512,14 @@ function record_failed_login_attempt(string $email, string $ipAddress): array
 
         if ($state['attempt_count'] > 0) {
             $statement = db()->prepare(
-                'UPDATE login_attempts
+                'UPDATE LoginAttempts
                  SET attempt_count = attempt_count + 1, last_attempt_at = UTC_TIMESTAMP()
                  WHERE email = ? AND ip_address = ?'
             );
             $statement->execute([$email, $ipAddress]);
         } else {
             $statement = db()->prepare(
-                'INSERT INTO login_attempts (email, ip_address, attempt_count, first_attempt_at, last_attempt_at)
+                'INSERT INTO LoginAttempts (email, ip_address, attempt_count, first_attempt_at, last_attempt_at)
                  VALUES (?, ?, 1, UTC_TIMESTAMP(), UTC_TIMESTAMP())'
             );
             $statement->execute([$email, $ipAddress]);
@@ -538,7 +538,7 @@ function clear_login_rate_limit_state(string $email, string $ipAddress): void
     }
 
     try {
-        $statement = db()->prepare('DELETE FROM login_attempts WHERE email = ? AND ip_address = ?');
+        $statement = db()->prepare('DELETE FROM LoginAttempts WHERE email = ? AND ip_address = ?');
         $statement->execute([$email, $ipAddress]);
     } catch (Throwable $error) {
         log_server_error('login-rate-limit-clear', $error);
@@ -580,14 +580,14 @@ function create_password_reset(string $email): ?string
         $pdo->beginTransaction();
 
         $invalidateStatement = $pdo->prepare(
-            'UPDATE password_resets
+            'UPDATE PasswordResets
              SET used_at = UTC_TIMESTAMP()
              WHERE user_id = ? AND used_at IS NULL'
         );
         $invalidateStatement->execute([(int) $user['id']]);
 
         $insertStatement = $pdo->prepare(
-            'INSERT INTO password_resets (user_id, token_hash, expires_at, requested_ip, user_agent)
+            'INSERT INTO PasswordResets (user_id, token_hash, expires_at, requested_ip, user_agent)
              VALUES (?, ?, DATE_ADD(UTC_TIMESTAMP(), INTERVAL ? SECOND), ?, ?)'
         );
         $insertStatement->execute([
@@ -623,8 +623,8 @@ function find_valid_password_reset(string $token): ?array
 
     $statement = db()->prepare(
         'SELECT pr.id, pr.user_id, pr.expires_at, pr.used_at, u.email, u.name
-         FROM password_resets pr
-         INNER JOIN users u ON u.id = pr.user_id
+         FROM PasswordResets pr
+         INNER JOIN Users u ON u.id = pr.user_id
          WHERE pr.token_hash = ?
          LIMIT 1'
     );
@@ -664,8 +664,8 @@ function reset_password_with_token(string $token, string $password): string
 
         $resetStatement = $pdo->prepare(
             'SELECT pr.id, pr.user_id, pr.expires_at, pr.used_at, u.email
-             FROM password_resets pr
-             INNER JOIN users u ON u.id = pr.user_id
+             FROM PasswordResets pr
+             INNER JOIN Users u ON u.id = pr.user_id
              WHERE pr.token_hash = ?
              LIMIT 1
              FOR UPDATE'
@@ -684,14 +684,14 @@ function reset_password_with_token(string $token, string $password): string
             return 'expired_reset_token';
         }
 
-        $updatePassword = $pdo->prepare('UPDATE users SET password_hash = ? WHERE id = ?');
+        $updatePassword = $pdo->prepare('UPDATE Users SET password_hash = ? WHERE id = ?');
         $updatePassword->execute([
             password_hash($password, PASSWORD_DEFAULT),
             (int) $reset['user_id'],
         ]);
 
         $markUsed = $pdo->prepare(
-            'UPDATE password_resets
+            'UPDATE PasswordResets
              SET used_at = UTC_TIMESTAMP()
              WHERE id = ? AND used_at IS NULL AND expires_at >= UTC_TIMESTAMP()'
         );
@@ -702,7 +702,7 @@ function reset_password_with_token(string $token, string $password): string
             return 'expired_reset_token';
         }
 
-        $clearAttempts = $pdo->prepare('DELETE FROM login_attempts WHERE email = ?');
+        $clearAttempts = $pdo->prepare('DELETE FROM LoginAttempts WHERE email = ?');
         $clearAttempts->execute([(string) $reset['email']]);
 
         $pdo->commit();
@@ -781,13 +781,13 @@ function dashboard_counts(): array
     return [
         'books' => safe_table_count('Book'),
         'reviews' => safe_table_count('Review'),
-        'users' => safe_table_count('users'),
+        'users' => safe_table_count('Users'),
     ];
 }
 
 function safe_table_count(string $tableName): ?int
 {
-    $allowedTables = ['Book', 'Review', 'users'];
+    $allowedTables = ['Book', 'Review', 'Users'];
     if (!in_array($tableName, $allowedTables, true)) {
         return null;
     }
@@ -831,7 +831,7 @@ function upload_book(string $title, float $price, string $blurb, string $image, 
 function get_all_users(): array
 {
     try {
-        $statement = db()->query('SELECT id, name, email, role, created_at FROM users ORDER BY created_at DESC');
+        $statement = db()->query('SELECT id, name, email, role, created_at FROM Users ORDER BY created_at DESC');
         $rows = $statement->fetchAll();
         return is_array($rows) ? $rows : [];
     } catch (Throwable $error) {

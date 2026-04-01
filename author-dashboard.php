@@ -29,7 +29,6 @@ if ($role !== 'author' && $role !== 'admin') {
       padding: 10%;
     }
   </style>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0"></script>
 </head>
 <body>
   <a href="#main-content" class="skip-link">Skip to main content</a>
@@ -60,7 +59,15 @@ if ($role !== 'author' && $role !== 'admin') {
         <h2>Books Published: 2</h2>
         <h2>Total Books Sold: 100</h2>
         <div class="chart-container" style="position: relative; height: 40vh; width: 90vw; display: inline-block;">
-          <canvas id="myChart" style="margin: 0 auto; width: 100%;"></canvas>
+          <canvas
+            id="myChart"
+            data-chart-title="Total Book Sales"
+            data-chart-labels='["2026-03-30","2026-03-31","2026-04-01"]'
+            data-chart-values="[20,50,100]"
+            aria-label="Line chart showing total book sales over time"
+            role="img"
+            style="margin: 0 auto; width: 100%; height: 100%; display: block;"
+          ></canvas>
         </div>
       </section>
     </main>
@@ -95,36 +102,6 @@ if ($role !== 'author' && $role !== 'admin') {
 
   <div class="toast" id="cart-toast" role="status" aria-live="polite"></div>
   <script src="js/main.js"></script>
-  <script>
-    const xValues = ["2026-3-30", "2026-3-31", "2026-4-1"];
-    const yValues = [20, 50, 100];
-
-    new Chart("myChart", {
-      type: "line",
-      data: {
-        labels: xValues,
-        datasets: [{
-          backgroundColor: "rgba(0,0,255,1.0)",
-          borderColor: "rgba(0,0,255,0.1)",
-          data: yValues
-        }]
-      },
-      options: {
-        scales: {
-          y: {
-            beginAtZero: true
-          }
-        },
-        plugins: {
-          legend: { display: false },
-          title: {
-            display: true,
-            text: "Total Book Sales",
-            font: { size: 16 }
-          }
-        }
-      }
-    });
-  </script>
+  <script src="js/author-dashboard.js"></script>
 </body>
 </html>

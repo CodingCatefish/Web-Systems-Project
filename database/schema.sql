@@ -111,7 +111,7 @@ CREATE TABLE Review_Book (
 -- Application auth table used by the implemented PHP/MySQL login flow
 -- ---------------------------------------------------------------------------
 
-CREATE TABLE users (
+CREATE TABLE Users (
   id            BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   name          VARCHAR(80)     NOT NULL,
   email         VARCHAR(254)    NOT NULL,
@@ -124,7 +124,7 @@ CREATE TABLE users (
   KEY idx_users_role (role)
 ) ENGINE=InnoDB;
 
-CREATE TABLE login_attempts (
+CREATE TABLE LoginAttempts (
   email            VARCHAR(254) NOT NULL,
   ip_address       VARCHAR(45)  NOT NULL,
   attempt_count    INT UNSIGNED NOT NULL DEFAULT 0,
@@ -134,7 +134,7 @@ CREATE TABLE login_attempts (
   KEY idx_login_attempts_last_attempt_at (last_attempt_at)
 ) ENGINE=InnoDB;
 
-CREATE TABLE password_resets (
+CREATE TABLE PasswordResets (
   id           BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   user_id      BIGINT UNSIGNED NOT NULL,
   token_hash   CHAR(64)        NOT NULL,
@@ -148,7 +148,7 @@ CREATE TABLE password_resets (
   KEY idx_password_resets_user_id (user_id),
   KEY idx_password_resets_expires_at (expires_at),
   CONSTRAINT fk_password_resets_user
-    FOREIGN KEY (user_id) REFERENCES users (id)
+    FOREIGN KEY (user_id) REFERENCES Users (id)
     ON DELETE CASCADE
     ON UPDATE CASCADE
 ) ENGINE=InnoDB;
