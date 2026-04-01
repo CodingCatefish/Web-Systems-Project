@@ -393,6 +393,18 @@
           <a class="nav-link" href="about.html">About</a>
           <a class="nav-link nav-account" href="login.php" id="account-nav-link">Login</a>
           <a class="nav-link" href="admin.php" id="admin-nav-link" style="display: none; font-weight: 800; color: var(--color-accent);">Admin</a>
+          <form class="nav-search" action="books.html" method="get" role="search" aria-label="Search books">
+            <label class="visually-hidden" for="nav-search-input">Search books by title or author</label>
+            <div class="nav-search__shell">
+              <input class="nav-search__input" id="nav-search-input" name="search" type="search" placeholder="Search books or authors" autocomplete="off" enterkeyhint="search">
+              <button class="nav-search__button" type="submit" aria-label="Search books">
+                <svg class="nav-search__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <circle cx="11" cy="11" r="6.5"></circle>
+                  <path d="M16 16L21 21"></path>
+                </svg>
+              </button>
+            </div>
+          </form>
           <a class="cart-link" href="books.html">Bag <span id="cart-count">0</span></a>
         </nav>
       </div>
