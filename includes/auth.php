@@ -807,6 +807,16 @@ function count_books_by_author()
     $statement = db()->prepare('SELECT COUNT(*) FROM Book INNER JOIN AuthorList on(Book.bookID=AuthorList.bookID) INNER JOIN User on(AuthorList.authorID=User.userID) where Book.vetted=1 AND User.userID= ?');
     $statement->execute([$_SESSION['id']]);
     $count = $statement->fetch();
+    return $count;
+}
 
-    return is_array($count) ? $count : null;
+function upload_book(string $title, float $price, string $blurb, string $image, string $pdf){
+    $statement = db()->prepare('INSERT INTO Book values(?,?,?,?,?,0,?)');
+    $statement->execute([$title,$price,$blurb,$image,$pdf,date("Y-m-d")]);
+
+    $last_id=$statement()->lastInsetId();
+
+    $statement = db()->prepare('INSERT INTO AuthorList values(?,?)');
+    $statement->execute([$last_id,$_SESSION['id']]);
+    
 }

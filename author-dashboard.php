@@ -1,10 +1,3 @@
-<?php
-declare(strict_types=1);
-
-require_once __DIR__ . '/includes/auth.php';
-
-echo count_books_by_author()
-?>
 
 <!DOCTYPE html>
 <html lang="en">
@@ -40,7 +33,14 @@ echo count_books_by_author()
           <h1 class="section-title">Author Dashboard</h1>
         </div>
       </section>
-
+      <?php
+      try {
+        require_once __DIR__ . '/includes/auth.php';
+        echo count_books_by_author();
+      } catch (\Throwable $th) {
+        echo $th;
+      } 
+      ?>
 
 
     </main>
