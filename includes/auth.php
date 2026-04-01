@@ -917,48 +917,157 @@ function require_admin(): array
     return $user;
 }
 
+function require_author_or_admin(): array
+{
+    $user = current_user();
+
+    if ($user === null) {
+        log_security_event('author_access_requires_login');
+        redirect_with_query('login.php', ['auth_error' => 'login_required']);
+    }
+
+    $role = (string) ($user['role'] ?? '');
+    if ($role !== 'author' && $role !== 'admin') {
+        log_security_event('author_access_forbidden', [
+            'user_id' => (int) $user['id'],
+            'email' => (string) $user['email'],
+            'role' => $role,
+        ]);
+        send_forbidden_page('Forbidden', 'Your account is signed in, but it does not have author access.');
+    }
+
+    return $user;
+}
+
 function dashboard_counts(): array
 {
     return [
         'books' => safe_table_count('Books'),
+        'pending_books' => safe_query_count('SELECT COUNT(*) AS aggregate_count FROM Books WHERE vetted = 0', [], 'dashboard-count-pending-books'),
         'reviews' => safe_table_count('Reviews'),
         'users' => safe_table_count('Users'),
+        'authors' => safe_query_count('SELECT COUNT(*) AS aggregate_count FROM Users WHERE role = ?', ['author'], 'dashboard-count-authors'),
+        'author_links' => safe_table_count('AuthorLists'),
+        'transactions' => safe_table_count('Transactions'),
     ];
 }
 
 function safe_table_count(string $tableName): ?int
 {
-    $allowedTables = ['Books', 'Reviews', 'Users'];
+    $allowedTables = ['Books', 'Reviews', 'Users', 'AuthorLists', 'Transactions'];
     if (!in_array($tableName, $allowedTables, true)) {
         return null;
     }
 
+    return safe_query_count('SELECT COUNT(*) AS aggregate_count FROM ' . $tableName, [], 'dashboard-count-' . strtolower($tableName));
+}
+
+function safe_query_count(string $query, array $parameters, string $context): ?int
+{
     try {
-        $statement = db()->query('SELECT COUNT(*) AS aggregate_count FROM ' . $tableName);
+        $statement = db()->prepare($query);
+        $statement->execute($parameters);
         $row = $statement->fetch();
         return is_array($row) ? (int) ($row['aggregate_count'] ?? 0) : 0;
     } catch (Throwable $error) {
-        log_server_error('dashboard-count-' . strtolower($tableName), $error);
+        log_server_error($context, $error);
         return null;
     }
 }
 
-function count_books_sold_by_author()
+function normalize_book_price(string $price): ?string
 {
-    $statement = db()->prepare('SELECT COUNT(*) FROM Transactions INNER JOIN Books ON Books.bookID = Transactions.bookID INNER JOIN AuthorLists ON Books.bookID = AuthorLists.bookID INNER JOIN Users AS Authors ON AuthorLists.author_id = Authors.id WHERE Authors.id = ?');
-    $statement->execute([$_SESSION['id']]);
-    $count = $statement->fetch()[0];
-    return $count;
+    $price = trim($price);
+    if ($price === '' || !preg_match('/^\d+(?:\.\d{1,2})?$/', $price)) {
+        return null;
+    }
+
+    $parts = explode('.', $price, 2);
+    $whole = ltrim($parts[0], '0');
+    if ($whole === '') {
+        $whole = '0';
+    }
+
+    $fraction = $parts[1] ?? '';
+    $fraction = str_pad($fraction, 2, '0');
+
+    return $whole . '.' . $fraction;
 }
 
-function count_books_by_author(){
-    $statement = db()->prepare('SELECT COUNT(*) FROM Books INNER JOIN AuthorLists ON Books.bookID = AuthorLists.bookID INNER JOIN Users AS Authors ON AuthorLists.author_id = Authors.id WHERE Books.vetted = 1 AND Authors.id = ?');
-    $statement->execute([$_SESSION['id']]);
-    $count = $statement->fetch()[0];
-    return $count;
+function count_books_sold_by_author(): int
+{
+    $user = current_user();
+    if (!is_array($user) || !isset($user['id'])) {
+        return 0;
+    }
+
+    if (($user['role'] ?? '') === 'admin') {
+        $statement = db()->prepare('SELECT COUNT(*) AS aggregate_count FROM Transactions WHERE bookID IN (SELECT DISTINCT bookID FROM AuthorLists)');
+        $statement->execute();
+        $count = $statement->fetch()['aggregate_count'] ?? 0;
+        return (int) $count;
+    }
+
+    $statement = db()->prepare('SELECT COUNT(*) AS aggregate_count FROM Transactions INNER JOIN Books ON Books.bookID = Transactions.bookID INNER JOIN AuthorLists ON Books.bookID = AuthorLists.bookID INNER JOIN Users AS Authors ON AuthorLists.author_id = Authors.id WHERE Authors.id = ?');
+    $statement->execute([(int) $user['id']]);
+    $count = $statement->fetch()['aggregate_count'] ?? 0;
+    return (int) $count;
 }
 
-function upload_book(string $title, float $price, string $blurb, string $image, string $pdf){
+function count_books_by_author(): int
+{
+    $user = current_user();
+    if (!is_array($user) || !isset($user['id'])) {
+        return 0;
+    }
+
+    if (($user['role'] ?? '') === 'admin') {
+        $statement = db()->prepare('SELECT COUNT(DISTINCT Books.bookID) AS aggregate_count FROM Books INNER JOIN AuthorLists ON Books.bookID = AuthorLists.bookID WHERE Books.vetted = 1');
+        $statement->execute();
+        $count = $statement->fetch()['aggregate_count'] ?? 0;
+        return (int) $count;
+    }
+
+    $statement = db()->prepare('SELECT COUNT(*) AS aggregate_count FROM Books INNER JOIN AuthorLists ON Books.bookID = AuthorLists.bookID INNER JOIN Users AS Authors ON AuthorLists.author_id = Authors.id WHERE Books.vetted = 1 AND Authors.id = ?');
+    $statement->execute([(int) $user['id']]);
+    $count = $statement->fetch()['aggregate_count'] ?? 0;
+    return (int) $count;
+}
+
+function current_author_dashboard_mode(): string
+{
+    $user = current_user();
+    return is_array($user) && (($user['role'] ?? '') === 'admin') ? 'admin' : 'author';
+}
+
+function current_author_dashboard_summary(): array
+{
+    if (current_author_dashboard_mode() === 'admin') {
+        return [
+            'mode' => 'admin',
+            'title_label' => 'Published Titles',
+            'title_note' => 'Distinct vetted books currently linked to any author profile in `AuthorLists`.',
+            'sales_label' => 'Recorded Sales',
+            'sales_note' => 'All transaction rows attached to books that have at least one author link.',
+        ];
+    }
+
+    return [
+        'mode' => 'author',
+        'title_label' => 'Published Titles',
+        'title_note' => 'Books linked to your account through the `AuthorLists` table and currently vetted for display.',
+        'sales_label' => 'Recorded Sales',
+        'sales_note' => 'Transaction rows attached to books authored by your account.',
+    ];
+}
+
+function upload_book(string $title, string $price, string $blurb, string $image, string $pdf): void
+{
+    $user = current_user();
+    if (!is_array($user) || !isset($user['id'])) {
+        throw new RuntimeException('Author access is required to upload a book.');
+    }
+
     $statement = db()->prepare(
         'INSERT INTO Books (title, price, blurb, image, pdf_refrence_path, vetted, created_date)
          VALUES (?, ?, ?, ?, ?, 0, ?)'
@@ -967,7 +1076,8 @@ function upload_book(string $title, float $price, string $blurb, string $image, 
 
     $last_id = (int) db()->lastInsertId();
 
-    $statement = db()->prepare('INSERT INTO AuthorLists (bookID, author_id) VALUES (?, ?)');
-    $statement->execute([$last_id, $_SESSION['id']]);
-    
+    if (((int) $user['id']) > 0) {
+        $statement = db()->prepare('INSERT INTO AuthorLists (bookID, author_id) VALUES (?, ?)');
+        $statement->execute([$last_id, (int) $user['id']]);
+    }
 }

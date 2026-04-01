@@ -28,7 +28,7 @@ CREATE TABLE `Users` (
 CREATE TABLE `Books` (
   bookID            BIGINT        NOT NULL AUTO_INCREMENT,
   title             VARCHAR(512)  NOT NULL,
-  price             BIGINT        NOT NULL DEFAULT 0,
+  price             DECIMAL(10,2) NOT NULL DEFAULT 0.00,
   blurb             VARCHAR(2048) NULL,
   image             VARCHAR(1024) NULL,
   pdf_refrence_path VARCHAR(1024) NULL,
