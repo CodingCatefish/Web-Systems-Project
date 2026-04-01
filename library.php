@@ -158,7 +158,7 @@ function library_meta_text(array $book): string
           <section class="library-hero reveal">
             <p class="library-kicker">Digital Shelf</p>
             <h1 class="library-title">Your Library</h1>
-            <p class="library-copy">Books you purchase through the digital checkout are available here to open in the embedded reader. Files still live under `uploads`, but reading access is checked against your account before the PDF is served.</p>
+            <p class="library-copy">Books you purchase through the digital checkout are available here to open in the embedded reader.</p>
           </section>
 
           <?php if ($books === []): ?>
