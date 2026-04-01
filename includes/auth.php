@@ -7,11 +7,6 @@ require_once __DIR__ . '/bootstrap.php';
 const LOGIN_RATE_LIMIT_MAX_ATTEMPTS = 5;
 const LOGIN_RATE_LIMIT_WINDOW_SECONDS = 900;
 const PASSWORD_RESET_TTL_SECONDS = 3600;
-const PASSWORD_RESET_REQUEST_LIMIT_PER_EMAIL = 3;
-const PASSWORD_RESET_REQUEST_LIMIT_PER_IP = 5;
-const PASSWORD_RESET_REQUEST_WINDOW_SECONDS = 3600;
-const PASSWORD_RESET_CLEANUP_RETENTION_SECONDS = 604800;
-const PASSWORD_RESET_SESSION_TOKEN_KEY = 'password_reset_token';
 
 function normalize_email(string $value): string
 {
@@ -224,9 +219,6 @@ function auth_feedback_catalog(string $formKey): array
                 'server_error' => [
                     'summary' => 'We could not start a password reset right now. Please try again.',
                 ],
-                'password_reset_rate_limited' => [
-                    'summary' => 'Too many password reset requests were made. Please wait before trying again.',
-                ],
             ],
             'notices' => [
                 'password_reset_requested' => 'If an account exists for that email, a reset link is ready.',
@@ -436,28 +428,6 @@ function clear_session(): void
     }
 }
 
-function set_active_password_reset_token(string $token): void
-{
-    if ($token === '') {
-        clear_active_password_reset_token();
-        return;
-    }
-
-    $_SESSION[PASSWORD_RESET_SESSION_TOKEN_KEY] = $token;
-}
-
-function active_password_reset_token(): string
-{
-    $token = $_SESSION[PASSWORD_RESET_SESSION_TOKEN_KEY] ?? '';
-
-    return is_string($token) ? $token : '';
-}
-
-function clear_active_password_reset_token(): void
-{
-    unset($_SESSION[PASSWORD_RESET_SESSION_TOKEN_KEY]);
-}
-
 function handle_csrf_failure(string $redirectPath, array $params = [], string $errorCode = 'csrf_invalid_token'): never
 {
     $params['auth_error'] = $errorCode;
@@ -477,7 +447,7 @@ function require_valid_form_post(string $redirectPath, array $params = []): void
 
 function find_user_by_email(string $email): ?array
 {
-    $statement = db()->prepare('SELECT id, name, email, password_hash, role FROM Users WHERE email = ? LIMIT 1');
+    $statement = db()->prepare('SELECT id, name, email, password_hash, role FROM users WHERE email = ? LIMIT 1');
     $statement->execute([$email]);
     $user = $statement->fetch();
 
@@ -499,7 +469,7 @@ function get_login_rate_limit_state(string $email, string $ipAddress): array
     try {
         $statement = db()->prepare(
             'SELECT attempt_count, UNIX_TIMESTAMP(first_attempt_at) AS first_attempt_ts
-             FROM LoginAttempts
+             FROM login_attempts
              WHERE email = ? AND ip_address = ?
              LIMIT 1'
         );
@@ -542,14 +512,14 @@ function record_failed_login_attempt(string $email, string $ipAddress): array
 
         if ($state['attempt_count'] > 0) {
             $statement = db()->prepare(
-                'UPDATE LoginAttempts
+                'UPDATE login_attempts
                  SET attempt_count = attempt_count + 1, last_attempt_at = UTC_TIMESTAMP()
                  WHERE email = ? AND ip_address = ?'
             );
             $statement->execute([$email, $ipAddress]);
         } else {
             $statement = db()->prepare(
-                'INSERT INTO LoginAttempts (email, ip_address, attempt_count, first_attempt_at, last_attempt_at)
+                'INSERT INTO login_attempts (email, ip_address, attempt_count, first_attempt_at, last_attempt_at)
                  VALUES (?, ?, 1, UTC_TIMESTAMP(), UTC_TIMESTAMP())'
             );
             $statement->execute([$email, $ipAddress]);
@@ -568,111 +538,10 @@ function clear_login_rate_limit_state(string $email, string $ipAddress): void
     }
 
     try {
-        $statement = db()->prepare('DELETE FROM LoginAttempts WHERE email = ? AND ip_address = ?');
+        $statement = db()->prepare('DELETE FROM login_attempts WHERE email = ? AND ip_address = ?');
         $statement->execute([$email, $ipAddress]);
     } catch (Throwable $error) {
         log_server_error('login-rate-limit-clear', $error);
-    }
-}
-
-function cleanup_password_reset_records(): void
-{
-    try {
-        $statement = db()->prepare(
-            'DELETE FROM PasswordResets
-             WHERE (used_at IS NOT NULL AND used_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL ? SECOND))
-                OR (used_at IS NULL AND expires_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL ? SECOND))'
-        );
-        $statement->execute([
-            PASSWORD_RESET_CLEANUP_RETENTION_SECONDS,
-            PASSWORD_RESET_CLEANUP_RETENTION_SECONDS,
-        ]);
-    } catch (Throwable $error) {
-        log_server_error('password-reset-cleanup', $error);
-    }
-}
-
-function cleanup_password_reset_request_attempts(): void
-{
-    try {
-        $statement = db()->prepare(
-            'DELETE FROM password_reset_request_attempts
-             WHERE last_attempt_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL ? SECOND)'
-        );
-        $statement->execute([PASSWORD_RESET_REQUEST_WINDOW_SECONDS]);
-    } catch (Throwable $error) {
-        log_server_error('password-reset-attempt-cleanup', $error);
-    }
-}
-
-function password_reset_request_rate_limit_state(string $email, string $ipAddress): array
-{
-    $state = [
-        'limited' => false,
-        'email_count' => 0,
-        'ip_count' => 0,
-    ];
-
-    if ($email === '' || $ipAddress === '') {
-        return $state;
-    }
-
-    try {
-        cleanup_password_reset_request_attempts();
-
-        $statement = db()->prepare(
-            'SELECT
-                COALESCE(SUM(CASE WHEN email = ? THEN attempt_count ELSE 0 END), 0) AS email_count,
-                COALESCE(SUM(CASE WHEN ip_address = ? THEN attempt_count ELSE 0 END), 0) AS ip_count
-             FROM password_reset_request_attempts'
-        );
-        $statement->execute([
-            $email,
-            $ipAddress,
-        ]);
-        $row = $statement->fetch();
-
-        if (!is_array($row)) {
-            return $state;
-        }
-
-        $emailCount = (int) ($row['email_count'] ?? 0);
-        $ipCount = (int) ($row['ip_count'] ?? 0);
-
-        return [
-            'limited' => $emailCount >= PASSWORD_RESET_REQUEST_LIMIT_PER_EMAIL || $ipCount >= PASSWORD_RESET_REQUEST_LIMIT_PER_IP,
-            'email_count' => $emailCount,
-            'ip_count' => $ipCount,
-        ];
-    } catch (Throwable $error) {
-        log_server_error('password-reset-rate-limit-read', $error);
-        return $state;
-    }
-}
-
-function record_password_reset_request_attempt(string $email, string $ipAddress): void
-{
-    if ($email === '' || $ipAddress === '') {
-        return;
-    }
-
-    try {
-        $statement = db()->prepare(
-            'UPDATE password_reset_request_attempts
-             SET attempt_count = attempt_count + 1, last_attempt_at = UTC_TIMESTAMP()
-             WHERE email = ? AND ip_address = ?'
-        );
-        $statement->execute([$email, $ipAddress]);
-
-        if ($statement->rowCount() === 0) {
-            $statement = db()->prepare(
-                'INSERT INTO password_reset_request_attempts (email, ip_address, attempt_count, first_attempt_at, last_attempt_at)
-                 VALUES (?, ?, 1, UTC_TIMESTAMP(), UTC_TIMESTAMP())'
-            );
-            $statement->execute([$email, $ipAddress]);
-        }
-    } catch (Throwable $error) {
-        log_server_error('password-reset-attempt-write', $error);
     }
 }
 
@@ -691,52 +560,41 @@ function is_unique_constraint_violation(Throwable $error): bool
     return is_array($errorInfo) && (string) ($errorInfo[0] ?? '') === '23000';
 }
 
-function create_password_reset(string $email): void
+function create_password_reset(string $email): ?string
 {
+    $user = find_user_by_email($email);
     $pdo = null;
-    $ipAddress = client_ip();
 
     log_security_event('password_reset_requested', ['email' => $email]);
-    cleanup_password_reset_records();
 
-    $rateLimitState = password_reset_request_rate_limit_state($email, $ipAddress);
-    if ($rateLimitState['limited']) {
-        log_security_event('password_reset_request_rate_limited', [
-            'email' => $email,
-        ]);
-        throw new RuntimeException('password_reset_rate_limited');
-    }
-
-    record_password_reset_request_attempt($email, $ipAddress);
-
-    $user = find_user_by_email($email);
     if ($user === null) {
-        return;
+        return null;
     }
 
     $token = bin2hex(random_bytes(32));
     $tokenHash = hash('sha256', $token);
+    $debugLink = null;
 
     try {
         $pdo = db();
         $pdo->beginTransaction();
 
         $invalidateStatement = $pdo->prepare(
-            'UPDATE PasswordResets
+            'UPDATE password_resets
              SET used_at = UTC_TIMESTAMP()
              WHERE user_id = ? AND used_at IS NULL'
         );
         $invalidateStatement->execute([(int) $user['id']]);
 
         $insertStatement = $pdo->prepare(
-            'INSERT INTO PasswordResets (user_id, token_hash, expires_at, requested_ip, user_agent)
+            'INSERT INTO password_resets (user_id, token_hash, expires_at, requested_ip, user_agent)
              VALUES (?, ?, DATE_ADD(UTC_TIMESTAMP(), INTERVAL ? SECOND), ?, ?)'
         );
         $insertStatement->execute([
             (int) $user['id'],
             $tokenHash,
             PASSWORD_RESET_TTL_SECONDS,
-            $ipAddress,
+            client_ip(),
             substr((string) ($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 255),
         ]);
 
@@ -751,8 +609,10 @@ function create_password_reset(string $email): void
     }
 
     if (app_show_reset_debug_link()) {
-        error_log('[password-reset-debug] ' . absolute_url('reset-password.php', ['token' => $token]));
+        $debugLink = absolute_url('reset-password.php', ['token' => $token]);
     }
+
+    return $debugLink;
 }
 
 function find_valid_password_reset(string $token): ?array
@@ -763,8 +623,8 @@ function find_valid_password_reset(string $token): ?array
 
     $statement = db()->prepare(
         'SELECT pr.id, pr.user_id, pr.expires_at, pr.used_at, u.email, u.name
-         FROM PasswordResets pr
-         INNER JOIN Users u ON u.id = pr.user_id
+         FROM password_resets pr
+         INNER JOIN users u ON u.id = pr.user_id
          WHERE pr.token_hash = ?
          LIMIT 1'
     );
@@ -804,8 +664,8 @@ function reset_password_with_token(string $token, string $password): string
 
         $resetStatement = $pdo->prepare(
             'SELECT pr.id, pr.user_id, pr.expires_at, pr.used_at, u.email
-             FROM PasswordResets pr
-             INNER JOIN Users u ON u.id = pr.user_id
+             FROM password_resets pr
+             INNER JOIN users u ON u.id = pr.user_id
              WHERE pr.token_hash = ?
              LIMIT 1
              FOR UPDATE'
@@ -824,14 +684,14 @@ function reset_password_with_token(string $token, string $password): string
             return 'expired_reset_token';
         }
 
-        $updatePassword = $pdo->prepare('UPDATE Users SET password_hash = ? WHERE id = ?');
+        $updatePassword = $pdo->prepare('UPDATE users SET password_hash = ? WHERE id = ?');
         $updatePassword->execute([
             password_hash($password, PASSWORD_DEFAULT),
             (int) $reset['user_id'],
         ]);
 
         $markUsed = $pdo->prepare(
-            'UPDATE PasswordResets
+            'UPDATE password_resets
              SET used_at = UTC_TIMESTAMP()
              WHERE id = ? AND used_at IS NULL AND expires_at >= UTC_TIMESTAMP()'
         );
@@ -842,7 +702,7 @@ function reset_password_with_token(string $token, string $password): string
             return 'expired_reset_token';
         }
 
-        $clearAttempts = $pdo->prepare('DELETE FROM LoginAttempts WHERE email = ?');
+        $clearAttempts = $pdo->prepare('DELETE FROM login_attempts WHERE email = ?');
         $clearAttempts->execute([(string) $reset['email']]);
 
         $pdo->commit();
@@ -850,7 +710,6 @@ function reset_password_with_token(string $token, string $password): string
             'user_id' => (int) $reset['user_id'],
             'email' => (string) $reset['email'],
         ]);
-        clear_active_password_reset_token();
     } catch (Throwable $error) {
         if ($pdo instanceof PDO && $pdo->inTransaction()) {
             $pdo->rollBack();
@@ -917,167 +776,98 @@ function require_admin(): array
     return $user;
 }
 
-function require_author_or_admin(): array
-{
-    $user = current_user();
-
-    if ($user === null) {
-        log_security_event('author_access_requires_login');
-        redirect_with_query('login.php', ['auth_error' => 'login_required']);
-    }
-
-    $role = (string) ($user['role'] ?? '');
-    if ($role !== 'author' && $role !== 'admin') {
-        log_security_event('author_access_forbidden', [
-            'user_id' => (int) $user['id'],
-            'email' => (string) $user['email'],
-            'role' => $role,
-        ]);
-        send_forbidden_page('Forbidden', 'Your account is signed in, but it does not have author access.');
-    }
-
-    return $user;
-}
-
 function dashboard_counts(): array
 {
     return [
-        'books' => safe_table_count('Books'),
-        'pending_books' => safe_query_count('SELECT COUNT(*) AS aggregate_count FROM Books WHERE vetted = 0', [], 'dashboard-count-pending-books'),
-        'reviews' => safe_table_count('Reviews'),
-        'users' => safe_table_count('Users'),
-        'authors' => safe_query_count('SELECT COUNT(*) AS aggregate_count FROM Users WHERE role = ?', ['author'], 'dashboard-count-authors'),
-        'author_links' => safe_table_count('AuthorLists'),
-        'transactions' => safe_table_count('Transactions'),
+        'books' => safe_table_count('Book'),
+        'reviews' => safe_table_count('Review'),
+        'users' => safe_table_count('users'),
     ];
 }
 
 function safe_table_count(string $tableName): ?int
 {
-    $allowedTables = ['Books', 'Reviews', 'Users', 'AuthorLists', 'Transactions'];
+    $allowedTables = ['Book', 'Review', 'users'];
     if (!in_array($tableName, $allowedTables, true)) {
         return null;
     }
 
-    return safe_query_count('SELECT COUNT(*) AS aggregate_count FROM ' . $tableName, [], 'dashboard-count-' . strtolower($tableName));
-}
-
-function safe_query_count(string $query, array $parameters, string $context): ?int
-{
     try {
-        $statement = db()->prepare($query);
-        $statement->execute($parameters);
+        $statement = db()->query('SELECT COUNT(*) AS aggregate_count FROM ' . $tableName);
         $row = $statement->fetch();
         return is_array($row) ? (int) ($row['aggregate_count'] ?? 0) : 0;
     } catch (Throwable $error) {
-        log_server_error($context, $error);
+        log_server_error('dashboard-count-' . strtolower($tableName), $error);
         return null;
     }
 }
 
-function normalize_book_price(string $price): ?string
+function count_books_sold_by_author()
 {
-    $price = trim($price);
-    if ($price === '' || !preg_match('/^\d+(?:\.\d{1,2})?$/', $price)) {
-        return null;
-    }
-
-    $parts = explode('.', $price, 2);
-    $whole = ltrim($parts[0], '0');
-    if ($whole === '') {
-        $whole = '0';
-    }
-
-    $fraction = $parts[1] ?? '';
-    $fraction = str_pad($fraction, 2, '0');
-
-    return $whole . '.' . $fraction;
+    $statement = db()->prepare('SELECT COUNT(*) FROM Transactions INNER JOIN Book on(Book.bookID=Transactions.bookID) INNER JOIN AuthorList on(Book.bookID=AuthorList.bookID) INNER JOIN User on(AuthorList.authorID=User.userID) WHERE User.userID= ?');
+    $statement->execute([$_SESSION['id']]);
+    $count = $statement->fetch()[0];
+    return $count;
 }
 
-function count_books_sold_by_author(): int
-{
-    $user = current_user();
-    if (!is_array($user) || !isset($user['id'])) {
-        return 0;
-    }
-
-    if (($user['role'] ?? '') === 'admin') {
-        $statement = db()->prepare('SELECT COUNT(*) AS aggregate_count FROM Transactions WHERE bookID IN (SELECT DISTINCT bookID FROM AuthorLists)');
-        $statement->execute();
-        $count = $statement->fetch()['aggregate_count'] ?? 0;
-        return (int) $count;
-    }
-
-    $statement = db()->prepare('SELECT COUNT(*) AS aggregate_count FROM Transactions INNER JOIN Books ON Books.bookID = Transactions.bookID INNER JOIN AuthorLists ON Books.bookID = AuthorLists.bookID INNER JOIN Users AS Authors ON AuthorLists.author_id = Authors.id WHERE Authors.id = ?');
-    $statement->execute([(int) $user['id']]);
-    $count = $statement->fetch()['aggregate_count'] ?? 0;
-    return (int) $count;
+function count_books_by_author(){
+    $statement = db()->prepare('SELECT COUNT(*) FROM Book INNER JOIN AuthorList on(Book.bookID=AuthorList.bookID) INNER JOIN User on(AuthorList.authorID=User.userID) WHERE Book.vetted=1 AND User.userID= ?');
+    $statement->execute([$_SESSION['id']]);
+    $count = $statement->fetch()[0];
+    return $count;
 }
 
-function count_books_by_author(): int
-{
-    $user = current_user();
-    if (!is_array($user) || !isset($user['id'])) {
-        return 0;
-    }
+function upload_book(string $title, float $price, string $blurb, string $image, string $pdf){
+    $statement = db()->prepare('INSERT INTO Book values(?,?,?,?,?,0,?)');
+    $statement->execute([$title,$price,$blurb,$image,$pdf,date("Y-m-d")]);
 
-    if (($user['role'] ?? '') === 'admin') {
-        $statement = db()->prepare('SELECT COUNT(DISTINCT Books.bookID) AS aggregate_count FROM Books INNER JOIN AuthorLists ON Books.bookID = AuthorLists.bookID WHERE Books.vetted = 1');
-        $statement->execute();
-        $count = $statement->fetch()['aggregate_count'] ?? 0;
-        return (int) $count;
-    }
+    $last_id=$statement()->lastInsetId();
 
-    $statement = db()->prepare('SELECT COUNT(*) AS aggregate_count FROM Books INNER JOIN AuthorLists ON Books.bookID = AuthorLists.bookID INNER JOIN Users AS Authors ON AuthorLists.author_id = Authors.id WHERE Books.vetted = 1 AND Authors.id = ?');
-    $statement->execute([(int) $user['id']]);
-    $count = $statement->fetch()['aggregate_count'] ?? 0;
-    return (int) $count;
+    $statement = db()->prepare('INSERT INTO AuthorList values(?,?)');
+    $statement->execute([$last_id,$_SESSION['id']]);
+
 }
 
-function current_author_dashboard_mode(): string
+function get_all_users(): array
 {
-    $user = current_user();
-    return is_array($user) && (($user['role'] ?? '') === 'admin') ? 'admin' : 'author';
+    try {
+        $statement = db()->query('SELECT id, name, email, role, created_at FROM users ORDER BY created_at DESC');
+        $rows = $statement->fetchAll();
+        return is_array($rows) ? $rows : [];
+    } catch (Throwable $error) {
+        log_server_error('admin-get-all-users', $error);
+        return [];
+    }
 }
 
-function current_author_dashboard_summary(): array
+function save_review(string $reviewerName, string $bookTitle, int $rating, string $content): bool
 {
-    if (current_author_dashboard_mode() === 'admin') {
-        return [
-            'mode' => 'admin',
-            'title_label' => 'Published Titles',
-            'title_note' => 'Distinct vetted books currently linked to any author profile in `AuthorLists`.',
-            'sales_label' => 'Recorded Sales',
-            'sales_note' => 'All transaction rows attached to books that have at least one author link.',
-        ];
+    try {
+        $statement = db()->prepare(
+            'INSERT INTO Review (reviewer_name, book_title, content, rating, created_date)
+             VALUES (?, ?, ?, ?, CURDATE())'
+        );
+        $statement->execute([$reviewerName, $bookTitle, $content, $rating]);
+        return true;
+    } catch (Throwable $error) {
+        log_server_error('save-review', $error);
+        return false;
     }
-
-    return [
-        'mode' => 'author',
-        'title_label' => 'Published Titles',
-        'title_note' => 'Books linked to your account through the `AuthorLists` table and currently vetted for display.',
-        'sales_label' => 'Recorded Sales',
-        'sales_note' => 'Transaction rows attached to books authored by your account.',
-    ];
 }
 
-function upload_book(string $title, string $price, string $blurb, string $image, string $pdf): void
+function get_reviews(): array
 {
-    $user = current_user();
-    if (!is_array($user) || !isset($user['id'])) {
-        throw new RuntimeException('Author access is required to upload a book.');
-    }
-
-    $statement = db()->prepare(
-        'INSERT INTO Books (title, price, blurb, image, pdf_refrence_path, vetted, created_date)
-         VALUES (?, ?, ?, ?, ?, 0, ?)'
-    );
-    $statement->execute([$title, $price, $blurb, $image, $pdf, date("Y-m-d")]);
-
-    $last_id = (int) db()->lastInsertId();
-
-    if (((int) $user['id']) > 0) {
-        $statement = db()->prepare('INSERT INTO AuthorLists (bookID, author_id) VALUES (?, ?)');
-        $statement->execute([$last_id, (int) $user['id']]);
+    try {
+        $statement = db()->query(
+            'SELECT reviewID AS id, reviewer_name AS name, book_title AS book,
+                    content AS text, rating, created_date AS date
+             FROM Review
+             ORDER BY created_date DESC, reviewID DESC'
+        );
+        $rows = $statement->fetchAll();
+        return is_array($rows) ? $rows : [];
+    } catch (Throwable $error) {
+        log_server_error('get-reviews', $error);
+        return [];
     }
 }
