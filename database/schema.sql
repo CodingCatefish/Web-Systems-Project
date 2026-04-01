@@ -32,10 +32,12 @@ CREATE TABLE Book (
 ) ENGINE=InnoDB;
 
 CREATE TABLE Review (
-  reviewID     BIGINT       NOT NULL AUTO_INCREMENT,
-  content      VARCHAR(2048) NOT NULL,
-  rating       INT          NOT NULL,
-  created_date DATE         NOT NULL,
+  reviewID      BIGINT        NOT NULL AUTO_INCREMENT,
+  reviewer_name VARCHAR(80)   NOT NULL,
+  book_title    VARCHAR(255)  NOT NULL,
+  content       VARCHAR(2048) NOT NULL,
+  rating        INT           NOT NULL,
+  created_date  DATE          NOT NULL,
   PRIMARY KEY (reviewID),
   CONSTRAINT chk_review_rating CHECK (rating >= 1 AND rating <= 5)
 ) ENGINE=InnoDB;

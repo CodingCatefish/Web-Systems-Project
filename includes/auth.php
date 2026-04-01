@@ -825,5 +825,49 @@ function upload_book(string $title, float $price, string $blurb, string $image, 
 
     $statement = db()->prepare('INSERT INTO AuthorList values(?,?)');
     $statement->execute([$last_id,$_SESSION['id']]);
-    
+
+}
+
+function get_all_users(): array
+{
+    try {
+        $statement = db()->query('SELECT id, name, email, role, created_at FROM users ORDER BY created_at DESC');
+        $rows = $statement->fetchAll();
+        return is_array($rows) ? $rows : [];
+    } catch (Throwable $error) {
+        log_server_error('admin-get-all-users', $error);
+        return [];
+    }
+}
+
+function save_review(string $reviewerName, string $bookTitle, int $rating, string $content): bool
+{
+    try {
+        $statement = db()->prepare(
+            'INSERT INTO Review (reviewer_name, book_title, content, rating, created_date)
+             VALUES (?, ?, ?, ?, CURDATE())'
+        );
+        $statement->execute([$reviewerName, $bookTitle, $content, $rating]);
+        return true;
+    } catch (Throwable $error) {
+        log_server_error('save-review', $error);
+        return false;
+    }
+}
+
+function get_reviews(): array
+{
+    try {
+        $statement = db()->query(
+            'SELECT reviewID AS id, reviewer_name AS name, book_title AS book,
+                    content AS text, rating, created_date AS date
+             FROM Review
+             ORDER BY created_date DESC, reviewID DESC'
+        );
+        $rows = $statement->fetchAll();
+        return is_array($rows) ? $rows : [];
+    } catch (Throwable $error) {
+        log_server_error('get-reviews', $error);
+        return [];
+    }
 }

@@ -1595,7 +1595,7 @@
       averageEl.textContent = '0.0';
       averageCaption.textContent = 'Community sentiment updates as reviews are submitted.';
       totalEl.textContent = '0';
-      totalCaption.textContent = 'Stored in this browser for the prototype experience.';
+      totalCaption.textContent = 'Reviews are saved to the database and this browser.';
       latestBookEl.textContent = 'No reviews yet';
       latestCaption.textContent = 'Submit the next recommendation for the shelf.';
       return;
@@ -1609,7 +1609,7 @@
     averageEl.textContent = average.toFixed(1);
     averageCaption.textContent = average >= 4.5 ? 'Readers are strongly recommending titles from this shelf.' : 'The shelf has a healthy mix of opinions and favorites.';
     totalEl.textContent = String(reviews.length);
-    totalCaption.textContent = reviews.length === 1 ? 'One reader has added a review in this browser.' : reviews.length + ' reader reviews are available in this browser.';
+    totalCaption.textContent = reviews.length === 1 ? 'One review saved.' : reviews.length + ' reviews saved.';
     latestBookEl.textContent = ordered[0].book || 'Recently reviewed title';
     latestCaption.textContent = 'Most recent review by ' + (ordered[0].name || 'a reader') + ' on ' + formatReviewDate(ordered[0].date) + '.';
   }
@@ -1804,11 +1804,29 @@
       saveReview(review);
       latestReviewKey = getReviewKey(review);
 
+      // Also save to MySQL database
+      getSessionInfo().then(function (session) {
+        var csrfToken = session && session.csrfToken ? session.csrfToken : '';
+        var formData = new FormData();
+        formData.append('name', name);
+        formData.append('book', book);
+        formData.append('rating', String(rating));
+        formData.append('text', text);
+        formData.append('csrf_token', csrfToken);
+        return fetch('api/reviews.php', {
+          method: 'POST',
+          credentials: 'same-origin',
+          body: formData
+        });
+      }).catch(function () {
+        // silently fail — review is already saved to localStorage
+      });
+
       form.reset();
       setSelectedRating(0);
       updateCharCount();
       if (status) {
-        status.textContent = 'Review submitted for this browser.';
+        status.textContent = 'Review submitted. Thank you!';
       }
 
       showToast('Review submitted. Thank you!');
