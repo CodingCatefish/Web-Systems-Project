@@ -104,6 +104,7 @@ function apply_security_headers(): void
         "img-src 'self' data: https://picsum.photos https://fastly.picsum.photos; " .
         "font-src 'self' https://fonts.gstatic.com; " .
         "connect-src 'self'; " .
+        "frame-src 'self' blob:; " .
         "object-src 'none'; " .
         "base-uri 'self'; " .
         "form-action 'self'; " .

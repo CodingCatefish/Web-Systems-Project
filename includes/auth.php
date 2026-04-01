@@ -840,6 +840,7 @@ function get_all_users(): array
     }
 }
 
+<<<<<<< Updated upstream
 function save_review(string $reviewerName, string $bookTitle, int $rating, string $content): bool
 {
     try {
@@ -871,3 +872,229 @@ function get_reviews(): array
         return [];
     }
 }
+=======
+function require_login(): array
+{
+    $user = current_user();
+
+    if ($user === null) {
+        log_security_event('customer_access_requires_login');
+        redirect_with_query('login.php', ['auth_error' => 'login_required']);
+    }
+
+    return $user;
+}
+
+function fetch_catalog_books(): array
+{
+    $statement = db()->prepare(
+        'SELECT
+            Books.bookID,
+            Books.title,
+            Books.price,
+            Books.blurb,
+            Books.image,
+            Books.pdf_refrence_path,
+            Books.created_date,
+            COALESCE(GROUP_CONCAT(DISTINCT Authors.name ORDER BY Authors.name SEPARATOR ", "), "Pagemark Author") AS author_names
+         FROM Books
+         LEFT JOIN AuthorLists ON AuthorLists.bookID = Books.bookID
+         LEFT JOIN Users AS Authors ON Authors.id = AuthorLists.author_id
+         WHERE Books.vetted = 1
+         GROUP BY Books.bookID, Books.title, Books.price, Books.blurb, Books.image, Books.pdf_refrence_path, Books.created_date
+         ORDER BY Books.created_date DESC, Books.bookID DESC'
+    );
+    $statement->execute();
+
+    $rows = $statement->fetchAll();
+
+    return is_array($rows) ? $rows : [];
+}
+
+function fetch_library_books_for_user(array $user): array
+{
+    $role = (string) ($user['role'] ?? '');
+    $userId = (int) ($user['id'] ?? 0);
+
+    if ($role === 'admin') {
+        $statement = db()->prepare(
+            'SELECT
+                Books.bookID,
+                Books.title,
+                Books.price,
+                Books.blurb,
+                Books.image,
+                Books.pdf_refrence_path,
+                MAX(Transactions.date_of_purchase) AS date_of_purchase,
+                COALESCE(GROUP_CONCAT(DISTINCT Authors.name ORDER BY Authors.name SEPARATOR ", "), "Pagemark Author") AS author_names
+             FROM Books
+             LEFT JOIN Transactions ON Transactions.bookID = Books.bookID
+             LEFT JOIN AuthorLists ON AuthorLists.bookID = Books.bookID
+             LEFT JOIN Users AS Authors ON Authors.id = AuthorLists.author_id
+             WHERE Books.vetted = 1 AND Books.pdf_refrence_path IS NOT NULL AND Books.pdf_refrence_path <> ""
+             GROUP BY Books.bookID, Books.title, Books.price, Books.blurb, Books.image, Books.pdf_refrence_path
+             ORDER BY date_of_purchase DESC, Books.bookID DESC'
+        );
+        $statement->execute();
+    } else {
+        $statement = db()->prepare(
+            'SELECT
+                Books.bookID,
+                Books.title,
+                Books.price,
+                Books.blurb,
+                Books.image,
+                Books.pdf_refrence_path,
+                MAX(Transactions.date_of_purchase) AS date_of_purchase,
+                COALESCE(GROUP_CONCAT(DISTINCT Authors.name ORDER BY Authors.name SEPARATOR ", "), "Pagemark Author") AS author_names
+             FROM Transactions
+             INNER JOIN Books ON Books.bookID = Transactions.bookID
+             LEFT JOIN AuthorLists ON AuthorLists.bookID = Books.bookID
+             LEFT JOIN Users AS Authors ON Authors.id = AuthorLists.author_id
+             WHERE Transactions.user_id = ? AND Books.pdf_refrence_path IS NOT NULL AND Books.pdf_refrence_path <> ""
+             GROUP BY Books.bookID, Books.title, Books.price, Books.blurb, Books.image, Books.pdf_refrence_path
+             ORDER BY date_of_purchase DESC, Books.bookID DESC'
+        );
+        $statement->execute([$userId]);
+    }
+
+    $rows = $statement->fetchAll();
+
+    return is_array($rows) ? $rows : [];
+}
+
+function find_book_by_id(int $bookId): ?array
+{
+    if ($bookId <= 0) {
+        return null;
+    }
+
+    $statement = db()->prepare(
+        'SELECT
+            Books.bookID,
+            Books.title,
+            Books.price,
+            Books.blurb,
+            Books.image,
+            Books.pdf_refrence_path,
+            Books.vetted,
+            Books.created_date,
+            COALESCE(GROUP_CONCAT(DISTINCT Authors.name ORDER BY Authors.name SEPARATOR ", "), "Pagemark Author") AS author_names
+         FROM Books
+         LEFT JOIN AuthorLists ON AuthorLists.bookID = Books.bookID
+         LEFT JOIN Users AS Authors ON Authors.id = AuthorLists.author_id
+         WHERE Books.bookID = ?
+         GROUP BY Books.bookID, Books.title, Books.price, Books.blurb, Books.image, Books.pdf_refrence_path, Books.vetted, Books.created_date
+         LIMIT 1'
+    );
+    $statement->execute([$bookId]);
+    $book = $statement->fetch();
+
+    return is_array($book) ? $book : null;
+}
+
+function user_can_access_book(array $user, int $bookId): bool
+{
+    if ($bookId <= 0) {
+        return false;
+    }
+
+    $role = (string) ($user['role'] ?? '');
+    $userId = (int) ($user['id'] ?? 0);
+
+    if ($role === 'admin') {
+        return true;
+    }
+
+    if ($role === 'author' && $userId > 0) {
+        $statement = db()->prepare('SELECT 1 FROM AuthorLists WHERE bookID = ? AND author_id = ? LIMIT 1');
+        $statement->execute([$bookId, $userId]);
+        if ($statement->fetchColumn() !== false) {
+            return true;
+        }
+    }
+
+    if ($userId <= 0) {
+        return false;
+    }
+
+    $statement = db()->prepare('SELECT 1 FROM Transactions WHERE user_id = ? AND bookID = ? LIMIT 1');
+    $statement->execute([$userId, $bookId]);
+
+    return $statement->fetchColumn() !== false;
+}
+
+function resolve_uploaded_pdf_path(string $referencePath): ?string
+{
+    $referencePath = trim(str_replace('\\', '/', $referencePath));
+    if ($referencePath === '') {
+        return null;
+    }
+
+    $uploadsRoot = realpath(dirname(__DIR__) . '/uploads');
+    if ($uploadsRoot === false) {
+        return null;
+    }
+
+    $uploadsRoot = str_replace('\\', '/', $uploadsRoot);
+    $absolutePath = realpath(dirname(__DIR__) . '/' . ltrim($referencePath, '/'));
+    if ($absolutePath === false) {
+        return null;
+    }
+
+    $absolutePath = str_replace('\\', '/', $absolutePath);
+    if (strpos($absolutePath, $uploadsRoot . '/') !== 0 && $absolutePath !== $uploadsRoot) {
+        return null;
+    }
+
+    if (!is_file($absolutePath)) {
+        return null;
+    }
+
+    if (strtolower((string) pathinfo($absolutePath, PATHINFO_EXTENSION)) !== 'pdf') {
+        return null;
+    }
+
+    return $absolutePath;
+}
+
+function record_transactions_for_user(int $userId, array $bookIds): int
+{
+    if ($userId <= 0) {
+        throw new RuntimeException('A persisted customer account is required to record purchases.');
+    }
+
+    $normalizedIds = array_values(array_unique(array_map('intval', $bookIds)));
+    $normalizedIds = array_values(array_filter($normalizedIds, function (int $bookId): bool {
+        return $bookId > 0;
+    }));
+
+    if ($normalizedIds === []) {
+        return 0;
+    }
+
+    $placeholders = implode(',', array_fill(0, count($normalizedIds), '?'));
+    $statement = db()->prepare(
+        'SELECT bookID
+         FROM Books
+         WHERE vetted = 1 AND pdf_refrence_path IS NOT NULL AND pdf_refrence_path <> "" AND bookID IN (' . $placeholders . ')'
+    );
+    $statement->execute($normalizedIds);
+    $allowedIds = array_map('intval', array_column($statement->fetchAll(), 'bookID'));
+
+    if ($allowedIds === []) {
+        return 0;
+    }
+
+    $inserted = 0;
+    $insert = db()->prepare('INSERT IGNORE INTO Transactions (user_id, bookID, date_of_purchase) VALUES (?, ?, ?)');
+    $purchaseDate = date('Y-m-d');
+
+    foreach ($allowedIds as $bookId) {
+        $insert->execute([$userId, $bookId, $purchaseDate]);
+        $inserted += $insert->rowCount();
+    }
+
+    return $inserted;
+}
+>>>>>>> Stashed changes

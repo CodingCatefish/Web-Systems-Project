@@ -112,10 +112,17 @@
     }
   };
 
-  function escapeHtml(text) {
-    var div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
+  function buildDefaultPreview(title) {
+    return {
+      synopsis: 'A story waiting for a dedicated summary. The details overlay can still preview the book as a styled reading experience.',
+      previewPage: 'Page 1 of 1',
+      previewLines: [
+        'This title is available in the catalog, but detailed preview copy has not been written yet.',
+        'If it is a digital upload, purchase it and open My Library to read the stored PDF in the browser.',
+        'Use the details view to confirm the author, price, and format before adding it to the bag.'
+      ],
+      title: title
+    };
   }
 
   function getBookDetails(card) {
@@ -123,34 +130,127 @@
     var authorNode = card.querySelector('.book-author');
     var categoryNode = card.querySelector('.book-category');
     var coverNode = card.querySelector('.book-cover img');
-
+    var priceNode = card.querySelector('.book-price');
     var title = card.dataset.title || (titleNode ? titleNode.textContent : '') || 'Book';
     var author = card.dataset.author || (authorNode ? authorNode.textContent : '') || 'Unknown author';
     var genre = card.dataset.genre || 'book';
     var category = categoryNode ? categoryNode.textContent : genre;
-    var priceNode = card.querySelector('.book-price');
     var price = priceNode ? priceNode.textContent : 'N/A';
-    var details = bookDetails[title] || {
-      synopsis: 'A story waiting for a dedicated summary. The details overlay can still preview the book as a styled reading experience.',
-      previewPage: 'Page 1 of 1',
-      previewLines: [
-        'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer in libero at ipsum interdum dictum.',
-        'Sed cursus orci nec urna elementum, sed tristique neque pretium. Vivamus at sem a ex tempor aliquet.',
-        'Cras efficitur libero sed orci condimentum, ut ultrices lacus posuere. Donec ut lectus in purus dignissim elementum.'
-      ]
-    };
+    var mappedDetails = bookDetails[title] || buildDefaultPreview(title);
+    var isDigital = card.getAttribute('data-reader-available') === 'true';
+    var synopsis = card.dataset.synopsis || mappedDetails.synopsis;
+    var previewPage = isDigital ? 'Unlock in My Library after checkout' : mappedDetails.previewPage;
+    var previewLines = isDigital ? [
+      'This title points to a PDF stored under uploads and is intended for in-browser reading.',
+      'Complete checkout to write the purchase into the Transactions table for your account.',
+      'After that, open My Library and use the flipbook reader to move through the PDF page by page.'
+    ] : mappedDetails.previewLines;
 
     return {
       title: title,
       author: author,
       genre: category,
       price: price,
+      format: card.dataset.format || (isDigital ? 'Digital PDF' : 'Paperback'),
       coverSrc: coverNode ? coverNode.src : '',
       coverAlt: coverNode ? coverNode.alt : title + ' cover',
-      synopsis: details.synopsis,
-      previewPage: details.previewPage,
-      previewLines: details.previewLines
+      synopsis: synopsis,
+      previewPage: previewPage,
+      previewLines: previewLines
     };
+  }
+
+  function buildUploadedBookCard(book) {
+    var card = document.createElement('article');
+    var cover = document.createElement('div');
+    var coverImg = document.createElement('img');
+    var meta = document.createElement('div');
+    var category = document.createElement('span');
+    var title = document.createElement('h3');
+    var author = document.createElement('p');
+    var row = document.createElement('div');
+    var price = document.createElement('span');
+    var actions = document.createElement('div');
+    var detailsButton = document.createElement('button');
+    var addButton = document.createElement('button');
+
+    card.className = 'book-card reveal visible book-item';
+    card.dataset.bookId = String(book.id || 0);
+    card.dataset.title = book.title || 'Book';
+    card.dataset.author = book.author || 'Pagemark Author';
+    card.dataset.genre = 'digital';
+    card.dataset.synopsis = book.blurb || '';
+    card.dataset.format = 'Digital PDF';
+    card.setAttribute('data-reader-available', book.has_reader ? 'true' : 'false');
+
+    cover.className = 'book-cover';
+    coverImg.src = book.image || 'data:image/gif;base64,R0lGODlhAQABAAAAACw=';
+    coverImg.alt = (book.title || 'Book') + ' cover';
+    cover.appendChild(coverImg);
+
+    meta.className = 'book-meta';
+    category.className = 'book-category';
+    category.textContent = 'Digital';
+    title.className = 'book-title';
+    title.textContent = book.title || 'Untitled upload';
+    author.className = 'book-author';
+    author.textContent = book.author || 'Pagemark Author';
+    meta.appendChild(category);
+    meta.appendChild(title);
+    meta.appendChild(author);
+
+    row.className = 'book-row';
+    price.className = 'book-price';
+    price.textContent = book.price || '$0.00';
+
+    actions.className = 'book-actions';
+    detailsButton.className = 'btn-mini btn-outline js-view-details';
+    detailsButton.type = 'button';
+    detailsButton.setAttribute('aria-haspopup', 'dialog');
+    detailsButton.textContent = 'View details';
+
+    addButton.className = 'btn-mini js-add-cart';
+    addButton.type = 'button';
+    addButton.textContent = 'Add';
+
+    actions.appendChild(detailsButton);
+    actions.appendChild(addButton);
+    row.appendChild(price);
+    row.appendChild(actions);
+
+    card.appendChild(cover);
+    card.appendChild(meta);
+    card.appendChild(row);
+
+    return card;
+  }
+
+  function initUploadedBooksCatalog() {
+    var grid = document.getElementById('book-grid');
+    if (!grid) return;
+
+    fetch('api/books.php', {
+      credentials: 'same-origin',
+      headers: {
+        Accept: 'application/json'
+      }
+    }).then(function (response) {
+      if (!response.ok) {
+        throw new Error('catalog_fetch_failed');
+      }
+      return response.json();
+    }).then(function (payload) {
+      var books = payload && Array.isArray(payload.books) ? payload.books : [];
+      if (!books.length) return;
+
+      books.forEach(function (book) {
+        grid.appendChild(buildUploadedBookCard(book));
+      });
+
+      document.dispatchEvent(new Event('pagemark:catalog-updated'));
+    }).catch(function () {
+      return;
+    });
   }
 
   function initBookDetailsModal() {
@@ -165,6 +265,7 @@
     var authorEl = document.getElementById('book-details-author');
     var genreEl = document.getElementById('book-details-genre');
     var priceEl = document.getElementById('book-details-price');
+    var formatEl = document.getElementById('book-details-format');
     var descriptionEl = document.getElementById('book-details-description');
     var previewTitleEl = document.getElementById('book-preview-title');
     var previewAuthorEl = document.getElementById('book-preview-author');
@@ -175,7 +276,6 @@
       details: document.getElementById('details-panel'),
       preview: document.getElementById('preview-panel')
     };
-
     var lastFocusedElement = null;
     var modalTimer = null;
 
@@ -184,6 +284,7 @@
         var isActive = tab.getAttribute('data-modal-tab') === nextTab;
         tab.setAttribute('aria-selected', String(isActive));
       });
+
       Object.keys(panels).forEach(function (name) {
         var panel = panels[name];
         var isActive = name === nextTab;
@@ -217,6 +318,9 @@
       authorEl.textContent = book.author;
       genreEl.textContent = book.genre;
       priceEl.textContent = book.price;
+      if (formatEl) {
+        formatEl.textContent = book.format;
+      }
       descriptionEl.textContent = book.synopsis;
       previewTitleEl.textContent = book.title;
       previewAuthorEl.textContent = book.author + ' - ' + book.genre;
@@ -305,5 +409,8 @@
     setTab('details');
   }
 
-  document.addEventListener('DOMContentLoaded', initBookDetailsModal);
+  document.addEventListener('DOMContentLoaded', function () {
+    initUploadedBooksCatalog();
+    initBookDetailsModal();
+  });
 })();

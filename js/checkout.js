@@ -1,6 +1,7 @@
 (function () {
   'use strict';
 
+  var CART_KEY = 'inkwell_cart_count';
   var BAG_ITEMS_KEY = 'inkwell_bag_items';
   var DELIVERY_OPTIONS = {
     pickup: {
@@ -22,6 +23,7 @@
 
   function getBagItemKey(item) {
     return [
+      item.bookId || '',
       item.title || '',
       item.author || '',
       item.price || '',
@@ -37,10 +39,12 @@
       if (!item || typeof item !== 'object') return;
 
       var normalized = {
+        bookId: Math.max(0, parseInt(item.bookId || '0', 10) || 0),
         title: item.title || 'Book',
         author: item.author || 'Unknown author',
         price: item.price || '$0.00',
         category: item.category || '',
+        isDigital: !!item.isDigital,
         quantity: Math.max(1, parseInt(item.quantity || '1', 10) || 1)
       };
       var key = getBagItemKey(normalized);
@@ -69,6 +73,20 @@
     }
   }
 
+  function saveBagItems(items) {
+    var normalized = normalizeBagItems(items);
+    sessionStorage.setItem(BAG_ITEMS_KEY, JSON.stringify(normalized));
+    sessionStorage.setItem(CART_KEY, String(normalized.reduce(function (sum, item) {
+      return sum + item.quantity;
+    }, 0)));
+  }
+
+  function getPurchasableItems(items) {
+    return items.filter(function (item) {
+      return item.bookId > 0 && item.isDigital;
+    });
+  }
+
   function parsePrice(value) {
     var numeric = parseFloat(String(value || '').replace(/[^0-9.]/g, ''));
     return Number.isFinite(numeric) ? numeric : 0;
@@ -80,6 +98,25 @@
 
   function isValidEmail(value) {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || ''));
+  }
+
+  function fetchSessionInfo() {
+    return fetch('api/session.php', {
+      credentials: 'same-origin',
+      headers: {
+        Accept: 'application/json'
+      }
+    }).then(function (response) {
+      if (!response.ok) {
+        throw new Error('session_fetch_failed');
+      }
+      return response.json();
+    }).then(function (payload) {
+      return {
+        user: payload && payload.user ? payload.user : null,
+        csrfToken: payload && payload.csrf_token ? payload.csrf_token : ''
+      };
+    });
   }
 
   function setFieldError(input, message) {
@@ -148,6 +185,7 @@
     var shipping = document.getElementById('checkout-shipping');
     var total = document.getElementById('checkout-total');
     var itemCount = document.getElementById('checkout-item-count');
+    var cartBadge = document.getElementById('cart-count');
     if (!list || !empty || !subtotal || !shipping || !total || !itemCount) return [];
 
     var items = getBagItems();
@@ -162,6 +200,9 @@
       shipping.textContent = formatCurrency(delivery.shipping);
       total.textContent = formatCurrency(delivery.shipping);
       itemCount.textContent = '0';
+      if (cartBadge) {
+        cartBadge.textContent = '0';
+      }
       return items;
     }
 
@@ -169,6 +210,13 @@
 
     items.forEach(function (item) {
       var li = document.createElement('li');
+      var metaParts = [
+        item.author || 'Unknown author',
+        item.category || 'Book',
+        item.isDigital ? 'Unlocks in My Library' : 'Prototype-only catalog item',
+        'Qty ' + item.quantity
+      ];
+
       li.className = 'checkout-item';
       li.innerHTML =
         '<div>' +
@@ -178,7 +226,7 @@
         '<strong></strong>';
 
       li.querySelector('h3').textContent = item.title || 'Book';
-      li.querySelector('p').textContent = [item.author || 'Unknown author', item.category || 'Book', 'Qty ' + item.quantity].join(' - ');
+      li.querySelector('p').textContent = metaParts.join(' - ');
       li.querySelector('strong').textContent = formatCurrency(parsePrice(item.price) * item.quantity);
       list.appendChild(li);
 
@@ -190,6 +238,9 @@
     shipping.textContent = formatCurrency(delivery.shipping);
     total.textContent = formatCurrency(subtotalValue + delivery.shipping);
     itemCount.textContent = String(totalUnits);
+    if (cartBadge) {
+      cartBadge.textContent = String(totalUnits);
+    }
     return items;
   }
 
@@ -333,11 +384,13 @@
 
     function updateCheckoutState(showErrors) {
       var items = renderCheckoutItems();
+      var purchasableItems = getPurchasableItems(items);
       var hasItems = items.length > 0;
+      var hasPurchasableItems = purchasableItems.length > 0;
       var contactReady = validateContact(showErrors);
       var deliveryReady = validateDelivery(showErrors);
       var paymentReady = validatePayment(showErrors);
-      var ready = hasItems && contactReady && deliveryReady && paymentReady;
+      var ready = hasPurchasableItems && contactReady && deliveryReady && paymentReady;
       var delivery = DELIVERY_OPTIONS[getSelectedDelivery()];
 
       updateProgress(contactReady, deliveryReady, paymentReady);
@@ -350,17 +403,42 @@
         return ready;
       }
 
-      if (ready) {
-        status.textContent = 'Everything needed for a checkout preview is in place. You can place the order to see the confirmation state.';
-        status.setAttribute('data-tone', 'ready');
-        summaryNote.textContent = delivery.label + ' is selected and reflected in the total below.';
-      } else {
-        status.textContent = 'Complete the remaining sections to enable the order confirmation preview.';
+      if (!hasPurchasableItems) {
+        status.textContent = 'This bag does not contain any database-backed digital titles yet. Add an uploaded PDF book to unlock it in My Library.';
         status.setAttribute('data-tone', 'warning');
-        summaryNote.textContent = 'Delivery is currently set to ' + delivery.label + '.';
+        summaryNote.textContent = 'Only uploaded digital titles with a stored PDF path can be written into your library.';
+        return ready;
+      }
+
+      if (ready) {
+        status.textContent = 'Everything needed for checkout is in place. Place the order to write digital access into your library.';
+        status.setAttribute('data-tone', 'ready');
+        summaryNote.textContent = purchasableItems.length + ' digital title' + (purchasableItems.length === 1 ? '' : 's') + ' will unlock in My Library.';
+      } else {
+        status.textContent = 'Complete the remaining sections to unlock your digital books.';
+        status.setAttribute('data-tone', 'warning');
+        summaryNote.textContent = delivery.label + ' is selected and ' + purchasableItems.length + ' digital title' + (purchasableItems.length === 1 ? '' : 's') + ' are eligible for library access.';
       }
 
       return ready;
+    }
+
+    function clearPurchasedItems(bookIds) {
+      var purchasedMap = Object.create(null);
+      bookIds.forEach(function (bookId) {
+        purchasedMap[String(bookId)] = true;
+      });
+
+      var remainingItems = getBagItems().filter(function (item) {
+        if (!item.bookId || !item.isDigital) {
+          return true;
+        }
+
+        return !purchasedMap[String(item.bookId)];
+      });
+
+      saveBagItems(remainingItems);
+      renderCheckoutItems();
     }
 
     Object.keys(formFields).forEach(function (key) {
@@ -397,6 +475,10 @@
     button.addEventListener('click', function () {
       var ready = updateCheckoutState(true);
       var items = getBagItems();
+      var purchasableItems = getPurchasableItems(items);
+      var uniqueBookIds = Array.from(new Set(purchasableItems.map(function (item) {
+        return item.bookId;
+      })));
       var delivery = DELIVERY_OPTIONS[getSelectedDelivery()];
       var subtotal = items.reduce(function (sum, item) {
         return sum + (parsePrice(item.price) * item.quantity);
@@ -406,13 +488,69 @@
         return;
       }
 
-      confirmation.innerHTML =
-        '<h3>Order preview ready</h3>' +
-        '<p>' + formFields.name.value.trim() + ' will receive a ' + delivery.label.toLowerCase() + ' order totaling ' + formatCurrency(subtotal + delivery.shipping) + '.</p>' +
-        '<p>Payment is still disabled in this prototype, so no charge is made.</p>';
-      confirmation.hidden = false;
+      button.disabled = true;
+      status.textContent = 'Writing this order into your digital library.';
+      status.setAttribute('data-tone', 'warning');
 
-      showToast('Order preview ready for ' + formFields.name.value.trim() + '.');
+      fetchSessionInfo().then(function (session) {
+        if (!session.user) {
+          window.location.assign('login.php?auth_error=login_required');
+          return null;
+        }
+
+        var params = new URLSearchParams();
+        params.set('csrf_token', session.csrfToken || '');
+        uniqueBookIds.forEach(function (bookId) {
+          params.append('book_ids[]', String(bookId));
+        });
+
+        return fetch('api/checkout.php', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: {
+            Accept: 'application/json',
+            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
+          },
+          body: params.toString()
+        });
+      }).then(function (response) {
+        if (!response) return null;
+        return response.json().then(function (payload) {
+          return {
+            ok: response.ok,
+            payload: payload || {}
+          };
+        });
+      }).then(function (result) {
+        if (!result) return;
+
+        if (!result.ok) {
+          if (result.payload && result.payload.error === 'login_required') {
+            window.location.assign('login.php?auth_error=login_required');
+            return;
+          }
+          throw new Error(result.payload && result.payload.error || 'checkout_failed');
+        }
+
+        clearPurchasedItems(uniqueBookIds);
+
+        confirmation.innerHTML =
+          '<h3>Library updated</h3>' +
+          '<p>' + formFields.name.value.trim() + ' completed a ' + delivery.label.toLowerCase() + ' order totaling ' + formatCurrency(subtotal + delivery.shipping) + '.</p>' +
+          '<p>' + result.payload.unlocked_count + ' digital title' + (result.payload.unlocked_count === 1 ? '' : 's') + ' were written into <a href="library.php">My Library</a>.</p>';
+        confirmation.hidden = false;
+
+        status.textContent = 'Checkout complete. Your digital books are now available in My Library.';
+        status.setAttribute('data-tone', 'ready');
+        summaryNote.textContent = 'Digital access has been granted for the checked-out uploaded books.';
+        showToast('Digital library updated.');
+        updateCheckoutState(false);
+      }).catch(function () {
+        status.textContent = 'The order could not be completed right now. Please try again.';
+        status.setAttribute('data-tone', 'warning');
+      }).finally(function () {
+        button.disabled = false;
+      });
     });
 
     updateDeliveryUI();
