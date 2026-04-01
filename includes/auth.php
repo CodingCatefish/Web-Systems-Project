@@ -802,11 +802,18 @@ function safe_table_count(string $tableName): ?int
     }
 }
 
-function count_books_by_author()
+function count_books_sold_by_author()
 {
-    $statement = db()->prepare('SELECT COUNT(*) FROM Book INNER JOIN AuthorList on(Book.bookID=AuthorList.bookID) INNER JOIN User on(AuthorList.authorID=User.userID) where Book.vetted=1 AND User.userID= ?');
+    $statement = db()->prepare('SELECT COUNT(*) FROM Transactions INNER JOIN Book on(Book.bookID=Transactions.bookID) INNER JOIN AuthorList on(Book.bookID=AuthorList.bookID) INNER JOIN User on(AuthorList.authorID=User.userID) WHERE User.userID= ?');
     $statement->execute([$_SESSION['id']]);
-    $count = $statement->fetch();
+    $count = $statement->fetch()[0];
+    return $count;
+}
+
+function count_books_by_author(){
+    $statement = db()->prepare('SELECT COUNT(*) FROM Book INNER JOIN AuthorList on(Book.bookID=AuthorList.bookID) INNER JOIN User on(AuthorList.authorID=User.userID) WHERE Book.vetted=1 AND User.userID= ?');
+    $statement->execute([$_SESSION['id']]);
+    $count = $statement->fetch()[0];
     return $count;
 }
 

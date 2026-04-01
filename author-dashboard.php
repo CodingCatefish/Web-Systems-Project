@@ -34,12 +34,7 @@
         </div>
       </section>
       <?php
-      try {
-        require_once __DIR__ . '/includes/auth.php';
         echo count_books_by_author();
-      } catch (\Throwable $th) {
-        echo $th;
-      } 
       ?>
 
 
