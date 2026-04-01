@@ -3,7 +3,6 @@
   "version": "1.0.0",
   "private": true,
   "description": "PHP/MySQL-powered local backend for the Web Systems Project site.",
-  "main": "server.js",
   "scripts": {
     "start": "php -S 127.0.0.1:3000",
     "dev": "php -S 127.0.0.1:3000"

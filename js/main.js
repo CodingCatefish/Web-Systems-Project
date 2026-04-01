@@ -326,7 +326,7 @@
     }
 
     var url = new URL(window.location.href);
-    ['auth_error', 'auth_notice', 'email', 'name', 'retry_after'].forEach(function (key) {
+    ['auth_error', 'auth_notice', 'email', 'name', 'retry_after', 'token'].forEach(function (key) {
       url.searchParams.delete(key);
     });
 
@@ -465,6 +465,9 @@
           },
           server_error: {
             summary: 'We could not start a password reset right now. Please try again.'
+          },
+          password_reset_rate_limited: {
+            summary: 'Too many password reset requests were made. Please wait before trying again.'
           }
         },
         notices: {
@@ -621,6 +624,23 @@
     return trimmed.split(/\s+/)[0];
   }
 
+  function getAccountDestination(user) {
+    var role = user && user.role ? String(user.role) : '';
+    return role === 'admin' || role === 'author' ? 'author-dashboard.php' : 'library.php';
+  }
+
+  function userHasRequiredRole(user, requiredRole) {
+    if (!requiredRole) return true;
+    if (!user) return false;
+
+    var role = user.role ? String(user.role) : '';
+    if (requiredRole === 'author') {
+      return role === 'author' || role === 'admin';
+    }
+
+    return role === requiredRole;
+  }
+
   function removeDynamicLogoutControl(nav) {
     if (!nav) return;
 
@@ -703,7 +723,7 @@
 
       if (accountLink) {
         accountLink.textContent = getDisplayName(user.name);
-        accountLink.href = user.role === 'admin' ? 'admin.php' : 'index.html';
+        accountLink.href = getAccountDestination(user);
         accountLink.title = user.email ? ('Signed in as ' + user.email) : 'Signed in';
       }
 
@@ -712,6 +732,25 @@
       }
 
       ensureDynamicLogoutControl(nav, csrfToken);
+    });
+  }
+
+  function initProtectedPageAccess() {
+    var requiredRole = document.body ? document.body.getAttribute('data-requires-role') : '';
+    if (!requiredRole) return;
+
+    getSessionInfo().then(function (session) {
+      var user = session && session.user ? session.user : null;
+      if (userHasRequiredRole(user, requiredRole)) {
+        return;
+      }
+
+      var destination = new URL(user ? 'index.html' : 'login.php', window.location.href);
+      if (!user) {
+        destination.searchParams.set('auth_error', 'login_required');
+      }
+
+      window.location.replace(destination.pathname + destination.search + destination.hash);
     });
   }
 
@@ -748,6 +787,7 @@
 
   function getBagItemKey(item) {
     return [
+      item.bookId || '',
       item.title || '',
       item.author || '',
       item.price || '',
@@ -763,10 +803,12 @@
       if (!item || typeof item !== 'object') return;
 
       var normalized = {
+        bookId: Math.max(0, parseInt(item.bookId || '0', 10) || 0),
         title: item.title || 'Book',
         author: item.author || 'Unknown author',
         price: item.price || '$0.00',
         category: item.category || '',
+        isDigital: !!item.isDigital,
         page: item.page || 'index.html',
         addedAt: item.addedAt || new Date().toISOString(),
         quantity: Math.max(1, parseInt(item.quantity || '1', 10) || 1)
@@ -812,10 +854,12 @@
     var categoryNode = card.querySelector('.book-category');
 
     return {
+      bookId: Math.max(0, parseInt(card.getAttribute('data-book-id') || '0', 10) || 0),
       title: card.getAttribute('data-title') || (titleNode ? titleNode.textContent.trim() : 'Book'),
       author: card.getAttribute('data-author') || (authorNode ? authorNode.textContent.trim() : 'Unknown author'),
       price: priceNode ? priceNode.textContent.trim() : '',
       category: categoryNode ? categoryNode.textContent.trim() : '',
+      isDigital: card.getAttribute('data-reader-available') === 'true',
       page: window.location.pathname.split('/').pop() || 'index.html',
       addedAt: new Date().toISOString(),
       quantity: 1
@@ -830,6 +874,9 @@
     var meta = item.author;
     if (item.category) {
       meta += ' · ' + item.category;
+    }
+    if (item.isDigital) {
+      meta += ' | Online reader';
     }
 
     var itemKey = getBagItemKey(item);
@@ -1155,35 +1202,36 @@
   }
 
   function initCartButtons() {
-    document.querySelectorAll('.js-add-cart').forEach(function (button) {
-      button.addEventListener('click', function () {
-        var details = getBookDetails(button);
-        var items = getBagItems();
-        var existingItem = details ? items.find(function (item) {
-          return getBagItemKey(item) === getBagItemKey(details);
-        }) : null;
+    document.addEventListener('click', function (event) {
+      var button = event.target.closest('.js-add-cart');
+      if (!button) return;
 
-        if (details) {
-          if (existingItem) {
-            existingItem.quantity += 1;
-          } else {
-            items.push(details);
-          }
-          saveBagItems(items);
-        } else {
-          sessionStorage.setItem(CART_KEY, String(getCartCount() + 1));
-        }
+      var details = getBookDetails(button);
+      var items = getBagItems();
+      var existingItem = details ? items.find(function (item) {
+        return getBagItemKey(item) === getBagItemKey(details);
+      }) : null;
 
-        updateCartCount();
-        if (details) {
-          showToast('Added "' + details.title + '" to bag');
-          if (bagOverlayEl && !bagOverlayEl.hidden) {
-            renderBagOverlay();
-          }
+      if (details) {
+        if (existingItem) {
+          existingItem.quantity += 1;
         } else {
-          showToast('Added item to bag');
+          items.push(details);
         }
-      });
+        saveBagItems(items);
+      } else {
+        sessionStorage.setItem(CART_KEY, String(getCartCount() + 1));
+      }
+
+      updateCartCount();
+      if (details) {
+        showToast('Added "' + details.title + '" to bag');
+        if (bagOverlayEl && !bagOverlayEl.hidden) {
+          renderBagOverlay();
+        }
+      } else {
+        showToast('Added item to bag');
+      }
     });
   }
 
@@ -1331,24 +1379,25 @@
   function initBookFilters() {
     var search = document.getElementById('book-search');
     var chips = document.querySelectorAll('.genre-chip');
-    var cards = document.querySelectorAll('.book-item');
     var noResults = document.getElementById('no-results');
     var clearFilters = document.getElementById('clear-filters');
     var resultsCount = document.getElementById('results-count');
 
-    if (!search || !cards.length) return;
-
-    var bookRecords = Array.from(cards).map(function (card) {
-      return {
-        card: card,
-        title: normalizeFilterText(card.dataset.title),
-        author: normalizeFilterText(card.dataset.author),
-        genre: normalizeFilterText(card.dataset.genre)
-      };
-    });
+    if (!search) return;
 
     function normalizeFilterText(value) {
       return String(value || '').trim().toLowerCase();
+    }
+
+    function getBookRecords() {
+      return Array.from(document.querySelectorAll('.book-item')).map(function (card) {
+        return {
+          card: card,
+          title: normalizeFilterText(card.dataset.title),
+          author: normalizeFilterText(card.dataset.author),
+          genre: normalizeFilterText(card.dataset.genre)
+        };
+      });
     }
 
     function isValidGenre(value) {
@@ -1423,6 +1472,7 @@
     }
 
     function renderFilteredBooks() {
+      var bookRecords = getBookRecords();
       var rawQuery = search.value.trim();
       var query = normalizeFilterText(rawQuery);
       var matches = filterBooks(bookRecords, query, activeGenre);
@@ -1465,6 +1515,7 @@
 
     setActiveGenreChip(activeGenre);
     renderFilteredBooks();
+    document.addEventListener('pagemark:catalog-updated', renderFilteredBooks);
 
     if (window.location.hash === '#book-search') {
       window.requestAnimationFrame(function () {
@@ -1873,6 +1924,7 @@
   }
 
   document.addEventListener('DOMContentLoaded', function () {
+    initProtectedPageAccess();
     setActiveNavLink();
     initHeaderState();
     initResponsiveNav();
