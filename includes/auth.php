@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 require_once __DIR__ . '/bootstrap.php';
@@ -725,29 +726,32 @@ function send_forbidden_page(string $title = 'Forbidden', string $message = 'You
     http_response_code(403);
     header('Content-Type: text/html; charset=utf-8');
     no_cache();
-    ?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title><?= e($title) ?> | Pagemark</title>
-  <link rel="stylesheet" href="css/styles.css">
-</head>
-<body class="auth-page">
-  <a href="#main-content" class="skip-link">Skip to main content</a>
-  <main id="main-content" class="auth-card">
-    <a class="auth-home-link" href="index.html">Back to home</a>
-    <div class="auth-logo">
-      <h1>Pagemark <span><?= e($title) ?></span></h1>
-    </div>
-    <p class="auth-subtitle"><?= e($message) ?></p>
-    <p class="auth-notice">If you believe this is incorrect, sign in with an administrator account.</p>
-    <p class="auth-footer-text"><a href="login.php">Go to login</a></p>
-  </main>
-</body>
-</html>
-    <?php
+?>
+    <!DOCTYPE html>
+    <html lang="en">
+
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title><?= e($title) ?> | Pagemark</title>
+        <link rel="stylesheet" href="css/styles.css">
+    </head>
+
+    <body class="auth-page">
+        <a href="#main-content" class="skip-link">Skip to main content</a>
+        <main id="main-content" class="auth-card">
+            <a class="auth-home-link" href="index.html">Back to home</a>
+            <div class="auth-logo">
+                <h1>Pagemark <span><?= e($title) ?></span></h1>
+            </div>
+            <p class="auth-subtitle"><?= e($message) ?></p>
+            <p class="auth-notice">If you believe this is incorrect, sign in with an administrator account.</p>
+            <p class="auth-footer-text"><a href="login.php">Go to login</a></p>
+        </main>
+    </body>
+
+    </html>
+<?php
     exit;
 }
 
@@ -796,4 +800,30 @@ function safe_table_count(string $tableName): ?int
         log_server_error('dashboard-count-' . strtolower($tableName), $error);
         return null;
     }
+}
+
+function count_books_sold_by_author()
+{
+    $statement = db()->prepare('SELECT COUNT(*) FROM Transactions INNER JOIN Book on(Book.bookID=Transactions.bookID) INNER JOIN AuthorList on(Book.bookID=AuthorList.bookID) INNER JOIN User on(AuthorList.authorID=User.userID) WHERE User.userID= ?');
+    $statement->execute([$_SESSION['id']]);
+    $count = $statement->fetch()[0];
+    return $count;
+}
+
+function count_books_by_author(){
+    $statement = db()->prepare('SELECT COUNT(*) FROM Book INNER JOIN AuthorList on(Book.bookID=AuthorList.bookID) INNER JOIN User on(AuthorList.authorID=User.userID) WHERE Book.vetted=1 AND User.userID= ?');
+    $statement->execute([$_SESSION['id']]);
+    $count = $statement->fetch()[0];
+    return $count;
+}
+
+function upload_book(string $title, float $price, string $blurb, string $image, string $pdf){
+    $statement = db()->prepare('INSERT INTO Book values(?,?,?,?,?,0,?)');
+    $statement->execute([$title,$price,$blurb,$image,$pdf,date("Y-m-d")]);
+
+    $last_id=$statement()->lastInsetId();
+
+    $statement = db()->prepare('INSERT INTO AuthorList values(?,?)');
+    $statement->execute([$last_id,$_SESSION['id']]);
+    
 }
