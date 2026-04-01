@@ -111,6 +111,20 @@ if (resolve_uploaded_pdf_path((string) ($book['pdf_refrence_path'] ?? '')) === n
       border: 1px solid rgba(26, 32, 44, 0.14);
     }
 
+    .reader-zoom-controls {
+      display: inline-flex;
+      gap: 0.45rem;
+      align-items: center;
+      color: var(--color-primary);
+      font-weight: 700;
+    }
+
+    .reader-zoom-value {
+      min-width: 64px;
+      text-align: center;
+      font-variant-numeric: tabular-nums;
+    }
+
     .reader-book {
       position: relative;
       min-height: 76vh;
@@ -156,14 +170,10 @@ if (resolve_uploaded_pdf_path((string) ($book['pdf_refrence_path'] ?? '')) === n
       position: relative;
       z-index: 1;
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 1rem;
+      grid-template-columns: minmax(0, 1fr);
       min-height: calc(76vh - 2rem);
       align-items: stretch;
-    }
-
-    .reader-spread[data-layout="single"] {
-      grid-template-columns: 1fr;
+      justify-items: center;
     }
 
     .reader-page {
@@ -171,6 +181,7 @@ if (resolve_uploaded_pdf_path((string) ($book['pdf_refrence_path'] ?? '')) === n
       grid-template-rows: minmax(0, 1fr) auto;
       gap: 0.7rem;
       min-height: 0;
+      width: min(100%, 980px);
     }
 
     .reader-page[hidden] {
@@ -181,10 +192,11 @@ if (resolve_uploaded_pdf_path((string) ($book['pdf_refrence_path'] ?? '')) === n
       position: relative;
       min-height: 100%;
       border-radius: 22px;
-      overflow: hidden;
+      overflow: auto;
       display: grid;
       place-items: center;
       padding: 0.9rem;
+      min-height: calc(76vh - 5.5rem);
       background:
         linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(245, 237, 221, 0.95)),
         linear-gradient(180deg, rgba(88, 54, 19, 0.05), rgba(88, 54, 19, 0.12));
@@ -196,9 +208,10 @@ if (resolve_uploaded_pdf_path((string) ($book['pdf_refrence_path'] ?? '')) === n
 
     .reader-page-canvas {
       display: block;
-      width: 100%;
+      width: auto;
       height: auto;
       max-width: 100%;
+      max-height: 100%;
       border-radius: 14px;
       background: #fff;
       box-shadow: 0 8px 22px rgba(15, 23, 42, 0.12);
@@ -229,6 +242,45 @@ if (resolve_uploaded_pdf_path((string) ($book['pdf_refrence_path'] ?? '')) === n
       text-align: center;
       color: var(--color-primary);
       font-weight: 700;
+    }
+
+    .reader-nav-arrow {
+      position: absolute;
+      top: 50%;
+      z-index: 4;
+      width: 52px;
+      height: 52px;
+      border: 0;
+      border-radius: 999px;
+      display: grid;
+      place-items: center;
+      background: rgba(32, 23, 11, 0.78);
+      color: #fffdfa;
+      font-size: 1.35rem;
+      line-height: 1;
+      box-shadow: 0 16px 28px rgba(15, 23, 42, 0.2);
+      transform: translateY(-50%);
+      transition: transform 180ms ease, opacity 180ms ease, background 180ms ease;
+    }
+
+    .reader-nav-arrow:hover,
+    .reader-nav-arrow:focus-visible {
+      transform: translateY(-50%) scale(1.05);
+      background: rgba(32, 23, 11, 0.9);
+    }
+
+    .reader-nav-arrow[disabled] {
+      opacity: 0.35;
+      cursor: not-allowed;
+      transform: translateY(-50%);
+    }
+
+    .reader-nav-arrow--left {
+      left: 1rem;
+    }
+
+    .reader-nav-arrow--right {
+      right: 1rem;
     }
 
     .reader-loading,
@@ -290,6 +342,23 @@ if (resolve_uploaded_pdf_path((string) ($book['pdf_refrence_path'] ?? '')) === n
       .reader-spread {
         min-height: 62vh;
       }
+
+      .reader-page-surface {
+        min-height: calc(62vh - 4.5rem);
+      }
+
+      .reader-nav-arrow {
+        width: 46px;
+        height: 46px;
+      }
+
+      .reader-nav-arrow--left {
+        left: 0.6rem;
+      }
+
+      .reader-nav-arrow--right {
+        right: 0.6rem;
+      }
     }
   </style>
 </head>
@@ -335,29 +404,31 @@ if (resolve_uploaded_pdf_path((string) ($book['pdf_refrence_path'] ?? '')) === n
                 <button class="btn btn-soft" type="button" id="reader-next">Next page</button>
                 <p class="reader-progress" id="reader-progress">Preparing pages.</p>
               </div>
-              <form class="reader-page-form" id="reader-page-form">
-                <label for="reader-page-input">Page</label>
-                <input id="reader-page-input" type="number" min="1" value="1" inputmode="numeric">
-                <button class="btn-mini" type="submit">Go</button>
-              </form>
+              <div class="reader-toolbar-group">
+                <div class="reader-zoom-controls" aria-label="Zoom controls">
+                  <button class="btn-mini" type="button" id="reader-zoom-out">-</button>
+                  <span class="reader-zoom-value" id="reader-zoom-value">100%</span>
+                  <button class="btn-mini" type="button" id="reader-zoom-in">+</button>
+                  <button class="btn-mini" type="button" id="reader-zoom-reset">Reset</button>
+                </div>
+                <form class="reader-page-form" id="reader-page-form">
+                  <label for="reader-page-input">Page</label>
+                  <input id="reader-page-input" type="number" min="1" value="1" inputmode="numeric">
+                  <button class="btn-mini" type="submit">Go</button>
+                </form>
+              </div>
             </div>
 
             <div class="reader-book" id="reader-book">
-              <div class="reader-spread" id="reader-spread" data-layout="spread">
-                <article class="reader-page" id="reader-page-left" aria-label="Left page">
+              <button class="reader-nav-arrow reader-nav-arrow--left" type="button" id="reader-prev-inline" aria-label="Previous page">&larr;</button>
+              <button class="reader-nav-arrow reader-nav-arrow--right" type="button" id="reader-next-inline" aria-label="Next page">&rarr;</button>
+              <div class="reader-spread" id="reader-spread">
+                <article class="reader-page" id="reader-page-current" aria-label="Current page">
                   <div class="reader-page-surface">
-                    <canvas class="reader-page-canvas" id="reader-canvas-left"></canvas>
-                    <div class="reader-page-placeholder" id="reader-placeholder-left" hidden>Front cover</div>
+                    <canvas class="reader-page-canvas" id="reader-canvas-current"></canvas>
+                    <div class="reader-page-placeholder" id="reader-placeholder-current" hidden>Page</div>
                   </div>
-                  <p class="reader-page-label" id="reader-label-left">Front cover</p>
-                </article>
-
-                <article class="reader-page" id="reader-page-right" aria-label="Right page">
-                  <div class="reader-page-surface">
-                    <canvas class="reader-page-canvas" id="reader-canvas-right"></canvas>
-                    <div class="reader-page-placeholder" id="reader-placeholder-right" hidden>Page</div>
-                  </div>
-                  <p class="reader-page-label" id="reader-label-right">Page 1</p>
+                  <p class="reader-page-label" id="reader-label-current">Page 1</p>
                 </article>
               </div>
 

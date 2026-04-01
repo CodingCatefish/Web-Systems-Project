@@ -20,6 +20,17 @@ function initReader() {
   var pageForm = document.getElementById('reader-page-form');
   var prevButton = document.getElementById('reader-prev');
   var nextButton = document.getElementById('reader-next');
+  var prevInlineButton = document.getElementById('reader-prev-inline');
+  var nextInlineButton = document.getElementById('reader-next-inline');
+  var zoomOutButton = document.getElementById('reader-zoom-out');
+  var zoomInButton = document.getElementById('reader-zoom-in');
+  var zoomResetButton = document.getElementById('reader-zoom-reset');
+  var zoomValue = document.getElementById('reader-zoom-value');
+  var pageRoot = document.getElementById('reader-page-current');
+  var pageSurface = document.querySelector('#reader-page-current .reader-page-surface');
+  var pageCanvas = document.getElementById('reader-canvas-current');
+  var pagePlaceholder = document.getElementById('reader-placeholder-current');
+  var pageLabel = document.getElementById('reader-label-current');
 
   if (
     bookId <= 0 ||
@@ -32,51 +43,42 @@ function initReader() {
     !pageInput ||
     !pageForm ||
     !prevButton ||
-    !nextButton
+    !nextButton ||
+    !prevInlineButton ||
+    !nextInlineButton ||
+    !zoomOutButton ||
+    !zoomInButton ||
+    !zoomResetButton ||
+    !zoomValue ||
+    !pageRoot ||
+    !pageSurface ||
+    !pageCanvas ||
+    !pagePlaceholder ||
+    !pageLabel
   ) {
     return;
   }
 
-  prevButton.disabled = true;
-  nextButton.disabled = true;
-
-  var leftSlot = {
-    root: document.getElementById('reader-page-left'),
-    surface: document.querySelector('#reader-page-left .reader-page-surface'),
-    canvas: document.getElementById('reader-canvas-left'),
-    placeholder: document.getElementById('reader-placeholder-left'),
-    label: document.getElementById('reader-label-left')
-  };
-  var rightSlot = {
-    root: document.getElementById('reader-page-right'),
-    surface: document.querySelector('#reader-page-right .reader-page-surface'),
-    canvas: document.getElementById('reader-canvas-right'),
-    placeholder: document.getElementById('reader-placeholder-right'),
-    label: document.getElementById('reader-label-right')
-  };
-  var mediaQuery = window.matchMedia('(max-width: 760px)');
   var pdfDocument = null;
   var totalPages = 0;
-  var currentPosition = 1;
+  var currentPage = 1;
   var renderToken = 0;
   var renderTasks = [];
   var pageCache = new Map();
   var resizeTimer = 0;
+  var pointerStartX = 0;
+  var pointerStartY = 0;
+  var activePointerId = null;
+  var suppressClickUntil = 0;
+  var zoomLevel = 1;
+  var minZoom = 1;
+  var maxZoom = 2.5;
+  var zoomStep = 0.25;
 
-  if (
-    !leftSlot.root ||
-    !leftSlot.surface ||
-    !leftSlot.canvas ||
-    !leftSlot.placeholder ||
-    !leftSlot.label ||
-    !rightSlot.root ||
-    !rightSlot.surface ||
-    !rightSlot.canvas ||
-    !rightSlot.placeholder ||
-    !rightSlot.label
-  ) {
-    return;
-  }
+  prevButton.disabled = true;
+  nextButton.disabled = true;
+  prevInlineButton.disabled = true;
+  nextInlineButton.disabled = true;
 
   function isCancellationError(error) {
     return Boolean(error && error.name === 'RenderingCancelledException');
@@ -86,77 +88,90 @@ function initReader() {
     if (totalPages <= 0) {
       return 1;
     }
+
     return Math.max(1, Math.min(totalPages, parseInt(page, 10) || 1));
   }
 
-  function isSinglePageLayout() {
-    return mediaQuery.matches || totalPages <= 1;
+  function clampZoom(level) {
+    return Math.max(minZoom, Math.min(maxZoom, level));
   }
 
-  function getLastPosition() {
-    if (isSinglePageLayout()) {
-      return Math.max(1, totalPages);
-    }
-    if (totalPages <= 1) {
-      return 1;
-    }
-    return totalPages % 2 === 0 ? totalPages : totalPages - 1;
+  function updateZoomControls() {
+    zoomValue.textContent = String(Math.round(zoomLevel * 100)) + '%';
+    zoomOutButton.disabled = zoomLevel <= minZoom;
+    zoomInButton.disabled = zoomLevel >= maxZoom;
+    zoomResetButton.disabled = Math.abs(zoomLevel - 1) < 0.001;
   }
 
-  function normalizePosition(page) {
-    var normalized = clampPage(page);
-
-    if (isSinglePageLayout()) {
-      return normalized;
+  function updateNavigationTargets() {
+    if (currentPage <= 1 && totalPages <= 1) {
+      pageRoot.dataset.turnDisabled = 'true';
+      pageRoot.removeAttribute('tabindex');
+      pageRoot.removeAttribute('role');
+      pageRoot.removeAttribute('aria-label');
+      pageRoot.removeAttribute('title');
+      return;
     }
 
-    if (normalized <= 1) {
-      return 1;
-    }
-
-    if (normalized % 2 !== 0) {
-      normalized -= 1;
-    }
-
-    return Math.min(Math.max(2, normalized), getLastPosition());
+    pageRoot.dataset.turnDisabled = 'false';
+    pageRoot.dataset.turnSplit = 'true';
+    pageRoot.setAttribute('tabindex', '0');
+    pageRoot.setAttribute('role', 'button');
+    pageRoot.setAttribute(
+      'aria-label',
+      'Activate the left side for the previous page or the right side for the next page.'
+    );
+    pageRoot.title = 'Left side: previous page. Right side: next page.';
   }
 
-  function updateLayout() {
-    var singlePage = isSinglePageLayout();
-    spread.setAttribute('data-layout', singlePage ? 'single' : 'spread');
-    leftSlot.root.hidden = singlePage;
-  }
+  function updateControls() {
+    var atStart = currentPage <= 1;
+    var atEnd = currentPage >= totalPages;
 
-  function updateControls(spreadState) {
-    pageInput.value = String(spreadState.inputPage);
+    pageInput.value = String(currentPage);
     pageInput.max = String(Math.max(1, totalPages));
-    progress.textContent = spreadState.progressText;
-    status.textContent = spreadState.statusText;
-    prevButton.disabled = spreadState.atStart;
-    nextButton.disabled = spreadState.atEnd;
+    progress.textContent = 'Page ' + currentPage + ' of ' + totalPages;
+    status.textContent =
+      'Showing page ' + currentPage + ' of ' + totalPages + ' in the protected reader.';
+    pageLabel.textContent = 'Page ' + currentPage;
+    prevButton.disabled = atStart;
+    nextButton.disabled = atEnd;
+    prevInlineButton.disabled = atStart;
+    nextInlineButton.disabled = atEnd;
+    updateNavigationTargets();
   }
 
-  function clearCanvas(slot) {
-    var context = slot.canvas.getContext('2d');
+  function clearCanvas() {
+    var context = pageCanvas.getContext('2d');
+
     if (context) {
-      context.clearRect(0, 0, slot.canvas.width, slot.canvas.height);
+      context.clearRect(0, 0, pageCanvas.width, pageCanvas.height);
     }
-    slot.canvas.width = 1;
-    slot.canvas.height = 1;
-    slot.canvas.style.width = '0';
-    slot.canvas.style.height = '0';
+
+    pageCanvas.width = 1;
+    pageCanvas.height = 1;
+    pageCanvas.style.width = '0';
+    pageCanvas.style.height = '0';
   }
 
-  function showPlaceholder(slot, label, text) {
-    clearCanvas(slot);
-    slot.label.textContent = label;
-    slot.placeholder.textContent = text;
-    slot.placeholder.hidden = false;
+  function resetSurfaceScroll() {
+    pageSurface.scrollTop = 0;
+    pageSurface.scrollLeft = Math.max(
+      0,
+      Math.round((pageCanvas.offsetWidth - pageSurface.clientWidth) / 2)
+    );
   }
 
-  function showCanvas(slot, label) {
-    slot.label.textContent = label;
-    slot.placeholder.hidden = true;
+  function showPlaceholder(text) {
+    clearCanvas();
+    pagePlaceholder.textContent = text;
+    pagePlaceholder.hidden = false;
+    resetSurfaceScroll();
+  }
+
+  function showCanvas() {
+    pagePlaceholder.hidden = true;
+    resetSurfaceScroll();
   }
 
   function trackRenderTask(task) {
@@ -174,6 +189,7 @@ function initReader() {
         task.cancel();
       }
     });
+
     renderTasks = [];
   }
 
@@ -188,164 +204,80 @@ function initReader() {
       bookShell.classList.add(
         direction === 'backward' ? 'is-flipping-backward' : 'is-flipping-forward'
       );
+
       window.setTimeout(function () {
         bookShell.classList.remove('is-flipping-forward', 'is-flipping-backward');
       }, 560);
     });
   }
 
-  function buildSpreadState(position) {
-    var atStart = position <= 1;
-    var atEnd = position >= getLastPosition();
-
-    if (isSinglePageLayout()) {
-      return {
-        inputPage: position,
-        atStart: atStart,
-        atEnd: position >= totalPages,
-        progressText: 'Page ' + position + ' of ' + totalPages,
-        statusText:
-          'Showing page ' + position + ' of ' + totalPages + ' in the protected flipbook reader.',
-        left: null,
-        right: {
-          pageNumber: position,
-          label: 'Page ' + position
-        }
-      };
-    }
-
-    if (position <= 1) {
-      return {
-        inputPage: 1,
-        atStart: true,
-        atEnd: totalPages <= 1,
-        progressText: 'Page 1 of ' + totalPages,
-        statusText: 'Showing page 1 of ' + totalPages + ' in flipbook view.',
-        left: {
-          pageNumber: null,
-          label: 'Front cover',
-          placeholderText: 'Front cover'
-        },
-        right: {
-          pageNumber: 1,
-          label: 'Page 1'
-        }
-      };
-    }
-
-    var leftPageNumber = Math.min(position, totalPages);
-    var rightPageNumber = leftPageNumber + 1 <= totalPages ? leftPageNumber + 1 : null;
-    var progressText = rightPageNumber
-      ? 'Pages ' + leftPageNumber + '-' + rightPageNumber + ' of ' + totalPages
-      : 'Page ' + leftPageNumber + ' of ' + totalPages;
-    var statusText = rightPageNumber
-      ? 'Showing pages ' + leftPageNumber + ' and ' + rightPageNumber + ' of ' + totalPages + '.'
-      : 'Showing page ' + leftPageNumber + ' of ' + totalPages + '.';
-
-    return {
-      inputPage: leftPageNumber,
-      atStart: atStart,
-      atEnd: atEnd,
-      progressText: progressText,
-      statusText: statusText,
-      left: {
-        pageNumber: leftPageNumber,
-        label: 'Page ' + leftPageNumber
-      },
-      right: rightPageNumber
-        ? {
-            pageNumber: rightPageNumber,
-            label: 'Page ' + rightPageNumber
-          }
-        : {
-            pageNumber: null,
-            label: 'Back cover',
-            placeholderText: 'Back cover'
-          }
-    };
-  }
-
   function getPage(pageNumber) {
     if (!pageCache.has(pageNumber)) {
       pageCache.set(pageNumber, pdfDocument.getPage(pageNumber));
     }
+
     return pageCache.get(pageNumber);
   }
 
-  function getSurfaceWidth(slot) {
-    var width = slot.surface.clientWidth - 28;
-    return Math.max(180, width);
+  function getSurfaceWidth() {
+    return Math.max(180, pageSurface.clientWidth - 28);
   }
 
-  async function renderPage(slot, pageState) {
-    if (!pageState || !pageState.pageNumber) {
-      showPlaceholder(
-        slot,
-        pageState ? pageState.label : '',
-        pageState && pageState.placeholderText ? pageState.placeholderText : ''
-      );
+  function getSurfaceHeight() {
+    return Math.max(220, pageSurface.clientHeight - 28);
+  }
+
+  async function renderCurrentPage(pageNumber, direction) {
+    if (!pdfDocument) {
       return;
     }
 
-    var page = await getPage(pageState.pageNumber);
+    var nextPage = clampPage(pageNumber);
+    var token = ++renderToken;
+    var shouldAnimate = direction && nextPage !== currentPage;
+    var page = await getPage(nextPage);
     var baseViewport = page.getViewport({ scale: 1 });
-    var slotWidth = getSurfaceWidth(slot);
-    var scale = slotWidth / baseViewport.width;
+    var fitWidth = getSurfaceWidth() / baseViewport.width;
+    var fitHeight = getSurfaceHeight() / baseViewport.height;
+    var scale = Math.max(0.1, Math.min(fitWidth, fitHeight) * zoomLevel);
     var outputScale = Math.max(1, Math.min(window.devicePixelRatio || 1, 2));
     var viewport = page.getViewport({ scale: scale * outputScale });
-    var context = slot.canvas.getContext('2d', { alpha: false });
+    var context = pageCanvas.getContext('2d', { alpha: false });
 
-    slot.canvas.width = Math.max(1, Math.floor(viewport.width));
-    slot.canvas.height = Math.max(1, Math.floor(viewport.height));
-    slot.canvas.style.width = Math.max(1, Math.floor(baseViewport.width * scale)) + 'px';
-    slot.canvas.style.height = Math.max(1, Math.floor(baseViewport.height * scale)) + 'px';
+    cancelRenderTasks();
+    animateFlip(shouldAnimate ? direction : '');
+
+    pageCanvas.width = Math.max(1, Math.floor(viewport.width));
+    pageCanvas.height = Math.max(1, Math.floor(viewport.height));
+    pageCanvas.style.width = Math.max(1, Math.floor(baseViewport.width * scale)) + 'px';
+    pageCanvas.style.height = Math.max(1, Math.floor(baseViewport.height * scale)) + 'px';
     context.setTransform(1, 0, 0, 1, 0, 0);
-    context.clearRect(0, 0, slot.canvas.width, slot.canvas.height);
+    context.clearRect(0, 0, pageCanvas.width, pageCanvas.height);
 
     var renderTask = page.render({
       canvasContext: context,
       viewport: viewport
     });
     trackRenderTask(renderTask);
-    await renderTask.promise;
-    showCanvas(slot, pageState.label);
-  }
-
-  async function renderSpread(position, direction) {
-    if (!pdfDocument) {
-      return;
-    }
-
-    var normalizedPosition = normalizePosition(position);
-    var spreadState = buildSpreadState(normalizedPosition);
-    var token = ++renderToken;
-    var shouldAnimate = direction && normalizedPosition !== currentPosition;
-
-    updateLayout();
-    cancelRenderTasks();
-    currentPosition = normalizedPosition;
-    animateFlip(shouldAnimate ? direction : '');
 
     try {
-      await Promise.all([
-        renderPage(leftSlot, spreadState.left),
-        renderPage(rightSlot, spreadState.right)
-      ]);
+      await renderTask.promise;
 
       if (token !== renderToken) {
         return;
       }
 
-      currentPosition = normalizedPosition;
+      currentPage = nextPage;
       errorPanel.hidden = true;
       loading.hidden = true;
-      updateControls(spreadState);
+      showCanvas();
+      updateControls();
     } catch (error) {
       if (isCancellationError(error)) {
         return;
       }
 
-      showError('The protected flipbook could not render this PDF.');
+      showError('The protected reader could not render this PDF.');
     }
   }
 
@@ -357,13 +289,53 @@ function initReader() {
     status.textContent = message;
     prevButton.disabled = true;
     nextButton.disabled = true;
+    prevInlineButton.disabled = true;
+    nextInlineButton.disabled = true;
+    pageRoot.dataset.turnDisabled = 'true';
+    pageRoot.removeAttribute('tabindex');
+    pageRoot.removeAttribute('role');
+    pageRoot.removeAttribute('aria-label');
+    pageRoot.removeAttribute('title');
   }
 
-  function goTo(page, direction) {
+  function goTo(pageNumber, direction) {
     if (!pdfDocument) {
       return;
     }
-    renderSpread(page, direction);
+
+    renderCurrentPage(pageNumber, direction);
+  }
+
+  function goBackward() {
+    if (currentPage <= 1) {
+      return;
+    }
+
+    goTo(currentPage - 1, 'backward');
+  }
+
+  function goForward() {
+    if (currentPage >= totalPages) {
+      return;
+    }
+
+    goTo(currentPage + 1, 'forward');
+  }
+
+  function setZoom(level) {
+    var nextZoom = clampZoom(level);
+
+    if (Math.abs(nextZoom - zoomLevel) < 0.001) {
+      updateZoomControls();
+      return;
+    }
+
+    zoomLevel = nextZoom;
+    updateZoomControls();
+
+    if (pdfDocument) {
+      renderCurrentPage(currentPage, '');
+    }
   }
 
   async function loadDocument() {
@@ -394,32 +366,40 @@ function initReader() {
       totalPages = Math.max(1, pdfDocument.numPages || 0);
       pageInput.max = String(totalPages);
       progress.textContent = 'Loaded ' + totalPages + ' page' + (totalPages === 1 ? '' : 's') + '.';
-      await renderSpread(1, '');
+      updateZoomControls();
+      await renderCurrentPage(1, '');
     } catch (error) {
-      showError('The protected flipbook could not be loaded right now.');
+      showPlaceholder('Page');
+      showError('The protected reader could not be loaded right now.');
     }
   }
 
   pageForm.addEventListener('submit', function (event) {
     event.preventDefault();
     var requestedPage = clampPage(pageInput.value);
-    var normalizedTarget = normalizePosition(requestedPage);
-    var direction = normalizedTarget < currentPosition
+    var direction = requestedPage < currentPage
       ? 'backward'
-      : normalizedTarget > currentPosition
+      : requestedPage > currentPage
         ? 'forward'
         : '';
     goTo(requestedPage, direction);
   });
 
-  prevButton.addEventListener('click', function () {
-    var step = isSinglePageLayout() ? 1 : 2;
-    goTo(Math.max(1, currentPosition - step), 'backward');
+  prevButton.addEventListener('click', goBackward);
+  nextButton.addEventListener('click', goForward);
+  prevInlineButton.addEventListener('click', goBackward);
+  nextInlineButton.addEventListener('click', goForward);
+
+  zoomOutButton.addEventListener('click', function () {
+    setZoom(zoomLevel - zoomStep);
   });
 
-  nextButton.addEventListener('click', function () {
-    var step = isSinglePageLayout() ? 1 : 2;
-    goTo(Math.min(getLastPosition(), currentPosition + step), 'forward');
+  zoomInButton.addEventListener('click', function () {
+    setZoom(zoomLevel + zoomStep);
+  });
+
+  zoomResetButton.addEventListener('click', function () {
+    setZoom(1);
   });
 
   document.addEventListener('keydown', function (event) {
@@ -438,14 +418,93 @@ function initReader() {
 
     if (event.key === 'ArrowLeft') {
       event.preventDefault();
-      var previousStep = isSinglePageLayout() ? 1 : 2;
-      goTo(Math.max(1, currentPosition - previousStep), 'backward');
+      goBackward();
     } else if (event.key === 'ArrowRight') {
       event.preventDefault();
-      var nextStep = isSinglePageLayout() ? 1 : 2;
-      goTo(Math.min(getLastPosition(), currentPosition + nextStep), 'forward');
+      goForward();
+    } else if (event.key === '+' || event.key === '=') {
+      event.preventDefault();
+      setZoom(zoomLevel + zoomStep);
+    } else if (event.key === '-') {
+      event.preventDefault();
+      setZoom(zoomLevel - zoomStep);
+    } else if (event.key === '0') {
+      event.preventDefault();
+      setZoom(1);
     }
   });
+
+  function handlePageActivation(clientX) {
+    if (pageRoot.dataset.turnDisabled === 'true') {
+      return;
+    }
+
+    var bounds = pageRoot.getBoundingClientRect();
+    var midpoint = bounds.left + bounds.width / 2;
+
+    if (clientX < midpoint) {
+      goBackward();
+    } else {
+      goForward();
+    }
+  }
+
+  pageRoot.addEventListener('click', function (event) {
+    if (Date.now() < suppressClickUntil) {
+      return;
+    }
+
+    handlePageActivation(event.clientX);
+  });
+
+  pageRoot.addEventListener('keydown', function (event) {
+    if (event.key !== 'Enter' && event.key !== ' ') {
+      return;
+    }
+
+    event.preventDefault();
+    handlePageActivation(pageRoot.getBoundingClientRect().left + pageRoot.clientWidth);
+  });
+
+  bookShell.addEventListener('pointerdown', function (event) {
+    if (event.pointerType === 'mouse' && event.button !== 0) {
+      return;
+    }
+
+    activePointerId = event.pointerId;
+    pointerStartX = event.clientX;
+    pointerStartY = event.clientY;
+  });
+
+  function resetPointerTracking() {
+    activePointerId = null;
+    pointerStartX = 0;
+    pointerStartY = 0;
+  }
+
+  bookShell.addEventListener('pointerup', function (event) {
+    if (activePointerId !== event.pointerId) {
+      return;
+    }
+
+    var deltaX = event.clientX - pointerStartX;
+    var deltaY = event.clientY - pointerStartY;
+    resetPointerTracking();
+
+    if (Math.abs(deltaX) < 60 || Math.abs(deltaX) < Math.abs(deltaY) * 1.2) {
+      return;
+    }
+
+    suppressClickUntil = Date.now() + 250;
+
+    if (deltaX < 0) {
+      goForward();
+    } else {
+      goBackward();
+    }
+  });
+
+  bookShell.addEventListener('pointercancel', resetPointerTracking);
 
   function handleViewportChange() {
     if (!pdfDocument) {
@@ -454,17 +513,12 @@ function initReader() {
 
     window.clearTimeout(resizeTimer);
     resizeTimer = window.setTimeout(function () {
-      renderSpread(currentPosition, '');
+      renderCurrentPage(currentPage, '');
     }, 120);
   }
 
-  if (typeof mediaQuery.addEventListener === 'function') {
-    mediaQuery.addEventListener('change', handleViewportChange);
-  } else if (typeof mediaQuery.addListener === 'function') {
-    mediaQuery.addListener(handleViewportChange);
-  }
-
   window.addEventListener('resize', handleViewportChange);
+  updateZoomControls();
   loadDocument();
 }
 
