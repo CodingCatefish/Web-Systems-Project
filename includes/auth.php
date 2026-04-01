@@ -780,14 +780,14 @@ function dashboard_counts(): array
 {
     return [
         'books' => safe_table_count('Book'),
-        'reviews' => safe_table_count('Review'),
+        'reviews' => safe_table_count('Reviews'),
         'users' => safe_table_count('users'),
     ];
 }
 
 function safe_table_count(string $tableName): ?int
 {
-    $allowedTables = ['Book', 'Review', 'users'];
+    $allowedTables = ['Book', 'Reviews', 'users'];
     if (!in_array($tableName, $allowedTables, true)) {
         return null;
     }
@@ -844,7 +844,7 @@ function save_review(string $reviewerName, string $bookTitle, int $rating, strin
 {
     try {
         $statement = db()->prepare(
-            'INSERT INTO Review (reviewer_name, book_title, content, rating, created_date)
+            'INSERT INTO Reviews (reviewer_name, book_title, content, rating, created_date)
              VALUES (?, ?, ?, ?, CURDATE())'
         );
         $statement->execute([$reviewerName, $bookTitle, $content, $rating]);
@@ -861,7 +861,7 @@ function get_reviews(): array
         $statement = db()->query(
             'SELECT reviewID AS id, reviewer_name AS name, book_title AS book,
                     content AS text, rating, created_date AS date
-             FROM Review
+             FROM Reviews
              ORDER BY created_date DESC, reviewID DESC'
         );
         $rows = $statement->fetchAll();
