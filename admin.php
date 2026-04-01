@@ -210,7 +210,7 @@ function format_dashboard_count(?int $count): string
         </div>
 
         <div class="admin-actions">
-          <a class="admin-action-card reveal" href="author-dashboard.html">
+          <a class="admin-action-card reveal" href="author-dashboard.php">
             <h2>Author Overview</h2>
           </a>
 

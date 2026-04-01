@@ -83,6 +83,12 @@ if (resolve_uploaded_pdf_path((string) ($book['pdf_refrence_path'] ?? '')) === n
       margin-bottom: 0.9rem;
     }
 
+    .reader-progress {
+      margin: 0;
+      color: var(--color-muted);
+      font-weight: 700;
+    }
+
     .reader-toolbar-group {
       display: flex;
       gap: 0.6rem;
@@ -126,31 +132,103 @@ if (resolve_uploaded_pdf_path((string) ($book['pdf_refrence_path'] ?? '')) === n
       pointer-events: none;
     }
 
-    .reader-book.is-flipping::before {
+    .reader-book.is-flipping-forward::before,
+    .reader-book.is-flipping-backward::before {
       content: "";
       position: absolute;
       inset: 0;
       background: linear-gradient(90deg, rgba(255, 255, 255, 0.1), rgba(255, 248, 220, 0.88), rgba(255, 255, 255, 0.1));
-      transform-origin: left center;
-      animation: page-flip 520ms cubic-bezier(0.2, 0, 0, 1);
       pointer-events: none;
       z-index: 2;
     }
 
-    .reader-viewport {
-      position: relative;
-      z-index: 1;
-      min-height: calc(76vh - 2rem);
-      border-radius: 20px;
-      overflow: hidden;
-      background: #c8c2b7;
+    .reader-book.is-flipping-forward::before {
+      transform-origin: left center;
+      animation: page-flip-forward 520ms cubic-bezier(0.2, 0, 0, 1);
     }
 
-    .reader-viewport iframe {
-      width: 100%;
+    .reader-book.is-flipping-backward::before {
+      transform-origin: right center;
+      animation: page-flip-backward 520ms cubic-bezier(0.2, 0, 0, 1);
+    }
+
+    .reader-spread {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1rem;
       min-height: calc(76vh - 2rem);
-      border: 0;
+      align-items: stretch;
+    }
+
+    .reader-spread[data-layout="single"] {
+      grid-template-columns: 1fr;
+    }
+
+    .reader-page {
+      display: grid;
+      grid-template-rows: minmax(0, 1fr) auto;
+      gap: 0.7rem;
+      min-height: 0;
+    }
+
+    .reader-page[hidden] {
+      display: none;
+    }
+
+    .reader-page-surface {
+      position: relative;
+      min-height: 100%;
+      border-radius: 22px;
+      overflow: hidden;
+      display: grid;
+      place-items: center;
+      padding: 0.9rem;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(245, 237, 221, 0.95)),
+        linear-gradient(180deg, rgba(88, 54, 19, 0.05), rgba(88, 54, 19, 0.12));
+      border: 1px solid rgba(88, 54, 19, 0.12);
+      box-shadow:
+        inset 0 0 0 1px rgba(255, 255, 255, 0.5),
+        0 18px 30px rgba(15, 23, 42, 0.08);
+    }
+
+    .reader-page-canvas {
+      display: block;
+      width: 100%;
+      height: auto;
+      max-width: 100%;
+      border-radius: 14px;
       background: #fff;
+      box-shadow: 0 8px 22px rgba(15, 23, 42, 0.12);
+    }
+
+    .reader-page-placeholder {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 1.5rem;
+      text-align: center;
+      color: #7c6448;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      background:
+        radial-gradient(circle at top, rgba(255, 255, 255, 0.92), rgba(245, 233, 209, 0.96)),
+        linear-gradient(180deg, rgba(88, 54, 19, 0.08), rgba(88, 54, 19, 0.15));
+    }
+
+    .reader-page-placeholder[hidden] {
+      display: none;
+    }
+
+    .reader-page-label {
+      margin: 0;
+      text-align: center;
+      color: var(--color-primary);
+      font-weight: 700;
     }
 
     .reader-loading,
@@ -161,6 +239,7 @@ if (resolve_uploaded_pdf_path((string) ($book['pdf_refrence_path'] ?? '')) === n
       place-items: center;
       text-align: center;
       padding: 1.25rem;
+      border-radius: inherit;
       background: rgba(255, 252, 245, 0.92);
       z-index: 3;
     }
@@ -170,7 +249,7 @@ if (resolve_uploaded_pdf_path((string) ($book['pdf_refrence_path'] ?? '')) === n
       display: none;
     }
 
-    @keyframes page-flip {
+    @keyframes page-flip-forward {
       from {
         opacity: 0;
         transform: perspective(1200px) rotateY(-74deg);
@@ -186,14 +265,29 @@ if (resolve_uploaded_pdf_path((string) ($book['pdf_refrence_path'] ?? '')) === n
       }
     }
 
+    @keyframes page-flip-backward {
+      from {
+        opacity: 0;
+        transform: perspective(1200px) rotateY(74deg);
+      }
+
+      30% {
+        opacity: 1;
+      }
+
+      to {
+        opacity: 0;
+        transform: perspective(1200px) rotateY(-78deg);
+      }
+    }
+
     @media (max-width: 960px) {
       .reader-layout {
         grid-template-columns: 1fr;
       }
 
       .reader-book,
-      .reader-viewport,
-      .reader-viewport iframe {
+      .reader-spread {
         min-height: 62vh;
       }
     }
@@ -239,6 +333,7 @@ if (resolve_uploaded_pdf_path((string) ($book['pdf_refrence_path'] ?? '')) === n
               <div class="reader-toolbar-group">
                 <button class="btn btn-soft" type="button" id="reader-prev">Previous page</button>
                 <button class="btn btn-soft" type="button" id="reader-next">Next page</button>
+                <p class="reader-progress" id="reader-progress">Preparing pages.</p>
               </div>
               <form class="reader-page-form" id="reader-page-form">
                 <label for="reader-page-input">Page</label>
@@ -248,16 +343,31 @@ if (resolve_uploaded_pdf_path((string) ($book['pdf_refrence_path'] ?? '')) === n
             </div>
 
             <div class="reader-book" id="reader-book">
-              <div class="reader-viewport">
-                <iframe id="reader-frame" title="Embedded PDF reader for <?= e((string) ($book['title'] ?? 'Book')) ?>"></iframe>
-                <div class="reader-loading" id="reader-loading">
-                  <p>Preparing your book for in-browser reading.</p>
-                </div>
-                <div class="reader-error" id="reader-error" hidden>
-                  <div>
-                    <p>The embedded reader could not load this PDF.</p>
-                    <p><a href="book-file.php?book=<?= (int) ($book['bookID'] ?? 0) ?>" target="_blank" rel="noopener">Open the protected PDF directly</a></p>
+              <div class="reader-spread" id="reader-spread" data-layout="spread">
+                <article class="reader-page" id="reader-page-left" aria-label="Left page">
+                  <div class="reader-page-surface">
+                    <canvas class="reader-page-canvas" id="reader-canvas-left"></canvas>
+                    <div class="reader-page-placeholder" id="reader-placeholder-left" hidden>Front cover</div>
                   </div>
+                  <p class="reader-page-label" id="reader-label-left">Front cover</p>
+                </article>
+
+                <article class="reader-page" id="reader-page-right" aria-label="Right page">
+                  <div class="reader-page-surface">
+                    <canvas class="reader-page-canvas" id="reader-canvas-right"></canvas>
+                    <div class="reader-page-placeholder" id="reader-placeholder-right" hidden>Page</div>
+                  </div>
+                  <p class="reader-page-label" id="reader-label-right">Page 1</p>
+                </article>
+              </div>
+
+              <div class="reader-loading" id="reader-loading">
+                <p>Preparing your book for in-browser reading.</p>
+              </div>
+              <div class="reader-error" id="reader-error" hidden>
+                <div>
+                  <p>The embedded reader could not load this PDF.</p>
+                  <p><a href="book-file.php?book=<?= (int) ($book['bookID'] ?? 0) ?>" target="_blank" rel="noopener">Open the protected PDF directly</a></p>
                 </div>
               </div>
             </div>
@@ -269,6 +379,6 @@ if (resolve_uploaded_pdf_path((string) ($book['pdf_refrence_path'] ?? '')) === n
 
   <div class="toast" id="cart-toast" role="status" aria-live="polite"></div>
   <script src="js/main.js"></script>
-  <script src="js/reader.js"></script>
+  <script type="module" src="js/reader.js"></script>
 </body>
 </html>

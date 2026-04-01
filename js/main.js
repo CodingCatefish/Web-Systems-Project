@@ -626,7 +626,7 @@
 
   function getAccountDestination(user) {
     var role = user && user.role ? String(user.role) : '';
-    return role === 'admin' || role === 'author' ? 'author-dashboard.html' : 'library.php';
+    return role === 'admin' || role === 'author' ? 'author-dashboard.php' : 'library.php';
   }
 
   function userHasRequiredRole(user, requiredRole) {

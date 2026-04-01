@@ -840,7 +840,6 @@ function get_all_users(): array
     }
 }
 
-<<<<<<< Updated upstream
 function save_review(string $reviewerName, string $bookTitle, int $rating, string $content): bool
 {
     try {
@@ -872,7 +871,7 @@ function get_reviews(): array
         return [];
     }
 }
-=======
+
 function require_login(): array
 {
     $user = current_user();
@@ -1097,4 +1096,3 @@ function record_transactions_for_user(int $userId, array $bookIds): int
 
     return $inserted;
 }
->>>>>>> Stashed changes
