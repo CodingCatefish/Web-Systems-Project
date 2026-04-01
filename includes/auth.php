@@ -477,7 +477,7 @@ function require_valid_form_post(string $redirectPath, array $params = []): void
 
 function find_user_by_email(string $email): ?array
 {
-    $statement = db()->prepare('SELECT id, name, email, password_hash, role FROM users WHERE email = ? LIMIT 1');
+    $statement = db()->prepare('SELECT id, name, email, password_hash, role FROM Users WHERE email = ? LIMIT 1');
     $statement->execute([$email]);
     $user = $statement->fetch();
 
@@ -499,7 +499,7 @@ function get_login_rate_limit_state(string $email, string $ipAddress): array
     try {
         $statement = db()->prepare(
             'SELECT attempt_count, UNIX_TIMESTAMP(first_attempt_at) AS first_attempt_ts
-             FROM login_attempts
+             FROM LoginAttempts
              WHERE email = ? AND ip_address = ?
              LIMIT 1'
         );
@@ -542,14 +542,14 @@ function record_failed_login_attempt(string $email, string $ipAddress): array
 
         if ($state['attempt_count'] > 0) {
             $statement = db()->prepare(
-                'UPDATE login_attempts
+                'UPDATE LoginAttempts
                  SET attempt_count = attempt_count + 1, last_attempt_at = UTC_TIMESTAMP()
                  WHERE email = ? AND ip_address = ?'
             );
             $statement->execute([$email, $ipAddress]);
         } else {
             $statement = db()->prepare(
-                'INSERT INTO login_attempts (email, ip_address, attempt_count, first_attempt_at, last_attempt_at)
+                'INSERT INTO LoginAttempts (email, ip_address, attempt_count, first_attempt_at, last_attempt_at)
                  VALUES (?, ?, 1, UTC_TIMESTAMP(), UTC_TIMESTAMP())'
             );
             $statement->execute([$email, $ipAddress]);
@@ -568,7 +568,7 @@ function clear_login_rate_limit_state(string $email, string $ipAddress): void
     }
 
     try {
-        $statement = db()->prepare('DELETE FROM login_attempts WHERE email = ? AND ip_address = ?');
+        $statement = db()->prepare('DELETE FROM LoginAttempts WHERE email = ? AND ip_address = ?');
         $statement->execute([$email, $ipAddress]);
     } catch (Throwable $error) {
         log_server_error('login-rate-limit-clear', $error);
@@ -579,7 +579,7 @@ function cleanup_password_reset_records(): void
 {
     try {
         $statement = db()->prepare(
-            'DELETE FROM password_resets
+            'DELETE FROM PasswordResets
              WHERE (used_at IS NOT NULL AND used_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL ? SECOND))
                 OR (used_at IS NULL AND expires_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL ? SECOND))'
         );
@@ -722,14 +722,14 @@ function create_password_reset(string $email): void
         $pdo->beginTransaction();
 
         $invalidateStatement = $pdo->prepare(
-            'UPDATE password_resets
+            'UPDATE PasswordResets
              SET used_at = UTC_TIMESTAMP()
              WHERE user_id = ? AND used_at IS NULL'
         );
         $invalidateStatement->execute([(int) $user['id']]);
 
         $insertStatement = $pdo->prepare(
-            'INSERT INTO password_resets (user_id, token_hash, expires_at, requested_ip, user_agent)
+            'INSERT INTO PasswordResets (user_id, token_hash, expires_at, requested_ip, user_agent)
              VALUES (?, ?, DATE_ADD(UTC_TIMESTAMP(), INTERVAL ? SECOND), ?, ?)'
         );
         $insertStatement->execute([
@@ -763,8 +763,8 @@ function find_valid_password_reset(string $token): ?array
 
     $statement = db()->prepare(
         'SELECT pr.id, pr.user_id, pr.expires_at, pr.used_at, u.email, u.name
-         FROM password_resets pr
-         INNER JOIN users u ON u.id = pr.user_id
+         FROM PasswordResets pr
+         INNER JOIN Users u ON u.id = pr.user_id
          WHERE pr.token_hash = ?
          LIMIT 1'
     );
@@ -804,8 +804,8 @@ function reset_password_with_token(string $token, string $password): string
 
         $resetStatement = $pdo->prepare(
             'SELECT pr.id, pr.user_id, pr.expires_at, pr.used_at, u.email
-             FROM password_resets pr
-             INNER JOIN users u ON u.id = pr.user_id
+             FROM PasswordResets pr
+             INNER JOIN Users u ON u.id = pr.user_id
              WHERE pr.token_hash = ?
              LIMIT 1
              FOR UPDATE'
@@ -824,14 +824,14 @@ function reset_password_with_token(string $token, string $password): string
             return 'expired_reset_token';
         }
 
-        $updatePassword = $pdo->prepare('UPDATE users SET password_hash = ? WHERE id = ?');
+        $updatePassword = $pdo->prepare('UPDATE Users SET password_hash = ? WHERE id = ?');
         $updatePassword->execute([
             password_hash($password, PASSWORD_DEFAULT),
             (int) $reset['user_id'],
         ]);
 
         $markUsed = $pdo->prepare(
-            'UPDATE password_resets
+            'UPDATE PasswordResets
              SET used_at = UTC_TIMESTAMP()
              WHERE id = ? AND used_at IS NULL AND expires_at >= UTC_TIMESTAMP()'
         );
@@ -842,7 +842,7 @@ function reset_password_with_token(string $token, string $password): string
             return 'expired_reset_token';
         }
 
-        $clearAttempts = $pdo->prepare('DELETE FROM login_attempts WHERE email = ?');
+        $clearAttempts = $pdo->prepare('DELETE FROM LoginAttempts WHERE email = ?');
         $clearAttempts->execute([(string) $reset['email']]);
 
         $pdo->commit();
@@ -920,15 +920,15 @@ function require_admin(): array
 function dashboard_counts(): array
 {
     return [
-        'books' => safe_table_count('Book'),
-        'reviews' => safe_table_count('Review'),
-        'users' => safe_table_count('users'),
+        'books' => safe_table_count('Books'),
+        'reviews' => safe_table_count('Reviews'),
+        'users' => safe_table_count('Users'),
     ];
 }
 
 function safe_table_count(string $tableName): ?int
 {
-    $allowedTables = ['Book', 'Review', 'users'];
+    $allowedTables = ['Books', 'Reviews', 'Users'];
     if (!in_array($tableName, $allowedTables, true)) {
         return null;
     }
@@ -945,26 +945,29 @@ function safe_table_count(string $tableName): ?int
 
 function count_books_sold_by_author()
 {
-    $statement = db()->prepare('SELECT COUNT(*) FROM Transactions INNER JOIN Book on(Book.bookID=Transactions.bookID) INNER JOIN AuthorList on(Book.bookID=AuthorList.bookID) INNER JOIN User on(AuthorList.authorID=User.userID) WHERE User.userID= ?');
+    $statement = db()->prepare('SELECT COUNT(*) FROM Transactions INNER JOIN Books ON Books.bookID = Transactions.bookID INNER JOIN AuthorLists ON Books.bookID = AuthorLists.bookID INNER JOIN Users AS Authors ON AuthorLists.author_id = Authors.id WHERE Authors.id = ?');
     $statement->execute([$_SESSION['id']]);
     $count = $statement->fetch()[0];
     return $count;
 }
 
 function count_books_by_author(){
-    $statement = db()->prepare('SELECT COUNT(*) FROM Book INNER JOIN AuthorList on(Book.bookID=AuthorList.bookID) INNER JOIN User on(AuthorList.authorID=User.userID) WHERE Book.vetted=1 AND User.userID= ?');
+    $statement = db()->prepare('SELECT COUNT(*) FROM Books INNER JOIN AuthorLists ON Books.bookID = AuthorLists.bookID INNER JOIN Users AS Authors ON AuthorLists.author_id = Authors.id WHERE Books.vetted = 1 AND Authors.id = ?');
     $statement->execute([$_SESSION['id']]);
     $count = $statement->fetch()[0];
     return $count;
 }
 
 function upload_book(string $title, float $price, string $blurb, string $image, string $pdf){
-    $statement = db()->prepare('INSERT INTO Book values(?,?,?,?,?,0,?)');
-    $statement->execute([$title,$price,$blurb,$image,$pdf,date("Y-m-d")]);
+    $statement = db()->prepare(
+        'INSERT INTO Books (title, price, blurb, image, pdf_refrence_path, vetted, created_date)
+         VALUES (?, ?, ?, ?, ?, 0, ?)'
+    );
+    $statement->execute([$title, $price, $blurb, $image, $pdf, date("Y-m-d")]);
 
-    $last_id=$statement()->lastInsetId();
+    $last_id = (int) db()->lastInsertId();
 
-    $statement = db()->prepare('INSERT INTO AuthorList values(?,?)');
-    $statement->execute([$last_id,$_SESSION['id']]);
+    $statement = db()->prepare('INSERT INTO AuthorLists (bookID, author_id) VALUES (?, ?)');
+    $statement->execute([$last_id, $_SESSION['id']]);
     
 }

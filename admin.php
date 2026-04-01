@@ -155,19 +155,19 @@ function format_dashboard_count(?int $count): string
           <article class="admin-card reveal">
             <h2>Books</h2>
             <p class="admin-stat"><?= e(format_dashboard_count($counts['books'])) ?></p>
-            <p class="admin-note">Current count from the `Book` table. This stays available even before full CRUD screens are connected.</p>
+            <p class="admin-note">Current count from the `Books` table. This stays available even before full CRUD screens are connected.</p>
           </article>
 
           <article class="admin-card reveal">
             <h2>Reviews</h2>
             <p class="admin-stat"><?= e(format_dashboard_count($counts['reviews'])) ?></p>
-            <p class="admin-note">Current count from the `Review` table. Browser-local review drafts do not appear here until they are stored server-side.</p>
+            <p class="admin-note">Current count from the `Reviews` table. Browser-local review drafts do not appear here until they are stored server-side.</p>
           </article>
 
           <article class="admin-card reveal">
             <h2>Users</h2>
             <p class="admin-stat"><?= e(format_dashboard_count($counts['users'])) ?></p>
-            <p class="admin-note">Current count from the `users` auth table. User and role management can be added later without changing this guard.</p>
+            <p class="admin-note">Current count from the `Users` table. User and role management can be added later without changing this guard.</p>
           </article>
         </div>
 

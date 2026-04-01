@@ -28,7 +28,7 @@ if (request_method() === 'POST') {
 
         try {
             $insertStatement = db()->prepare(
-                'INSERT INTO users (name, email, password_hash, role) VALUES (?, ?, ?, ?)'
+                'INSERT INTO Users (name, email, password_hash, role) VALUES (?, ?, ?, ?)'
             );
             $insertStatement->execute([
                 $name,
