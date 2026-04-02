@@ -983,7 +983,7 @@ main {
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: #ab7305;
+  color: #9b6700;
 }
 
 .book-title {
@@ -1043,6 +1043,51 @@ main {
 
 .catalog-tools-panel {
   padding: 1rem;
+}
+
+.event-card {
+  display: grid;
+  gap: 1rem;
+  height: 100%;
+  padding: 1.4rem;
+  border: 1px solid rgba(26, 32, 44, 0.12);
+  border-radius: 22px;
+  background: rgba(255, 250, 242, 0.88);
+  box-shadow: var(--shadow-sm);
+  transition:
+    transform 180ms cubic-bezier(0.2, 0, 0, 1),
+    border-color 180ms ease,
+    box-shadow 220ms ease;
+}
+
+.event-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(245, 158, 11, 0.35);
+  box-shadow: 0 18px 34px rgba(26, 32, 44, 0.1);
+}
+
+.event-card h3,
+.event-card p {
+  margin: 0;
+}
+
+.event-date {
+  color: var(--color-accent);
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.event-link {
+  margin-top: auto;
+  color: var(--color-primary);
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.event-link:hover {
+  color: #8a5900;
 }
 
 .catalog-controls {

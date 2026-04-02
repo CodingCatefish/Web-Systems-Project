@@ -168,11 +168,11 @@ if (request_method() === 'POST') {
     <footer class="site-footer">
       <div class="container footer-grid">
         <section>
-          <h4>Pagemark</h4>
+          <h2>Pagemark</h2>
           <p>Independent bookstore, reading community, and cafe. Built for people who collect stories.</p>
         </section>
         <section>
-          <h4>Explore</h4>
+          <h2>Explore</h2>
           <ul class="footer-links">
             <li><a href="books.html">View Books</a></li>
             <li><a href="books.html">Book Clubs</a></li>
@@ -180,7 +180,7 @@ if (request_method() === 'POST') {
           </ul>
         </section>
         <section>
-          <h4>Information</h4>
+          <h2>Information</h2>
           <ul class="footer-links">
             <li><a href="about.html">About</a></li>
             <li><a href="services.html">Services</a></li>

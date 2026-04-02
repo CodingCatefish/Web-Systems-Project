@@ -48,7 +48,7 @@ if (resolve_uploaded_pdf_path((string) ($book['pdf_refrence_path'] ?? '')) === n
 
     .reader-kicker {
       margin: 0;
-      color: var(--color-accent);
+      color: var(--color-accent-strong);
       font-size: 0.76rem;
       font-weight: 800;
       letter-spacing: 0.14em;
@@ -157,13 +157,13 @@ if (resolve_uploaded_pdf_path((string) ($book['pdf_refrence_path'] ?? '')) === n
     }
 
     .reader-book.is-flipping-forward::before {
-      transform-origin: left center;
-      animation: page-flip-forward 520ms cubic-bezier(0.2, 0, 0, 1);
+      transform-origin: right center;
+      animation: page-flip-backward 520ms cubic-bezier(0.2, 0, 0, 1);
     }
 
     .reader-book.is-flipping-backward::before {
-      transform-origin: right center;
-      animation: page-flip-backward 520ms cubic-bezier(0.2, 0, 0, 1);
+      transform-origin: left center;
+      animation: page-flip-forward 520ms cubic-bezier(0.2, 0, 0, 1);
     }
 
     .reader-spread {
@@ -383,7 +383,7 @@ if (resolve_uploaded_pdf_path((string) ($book['pdf_refrence_path'] ?? '')) === n
     <main id="main-content">
       <section class="section">
         <div class="container reader-layout">
-          <aside class="panel reader-panel reveal">
+          <section class="panel reader-panel reveal">
             <div>
               <p class="reader-kicker">Flipbook Reader</p>
               <h1 class="reader-title"><?= e((string) ($book['title'] ?? 'Book')) ?></h1>
@@ -395,7 +395,7 @@ if (resolve_uploaded_pdf_path((string) ($book['pdf_refrence_path'] ?? '')) === n
               <a class="btn btn-primary" href="library.php">Back to library</a>
               <a class="btn btn-soft" href="book-file.php?book=<?= (int) ($book['bookID'] ?? 0) ?>" target="_blank" rel="noopener">Open in browser</a>
             </div>
-          </aside>
+          </section>
 
           <section class="panel reader-stage reveal">
             <div class="reader-toolbar">
@@ -423,13 +423,13 @@ if (resolve_uploaded_pdf_path((string) ($book['pdf_refrence_path'] ?? '')) === n
               <button class="reader-nav-arrow reader-nav-arrow--left" type="button" id="reader-prev-inline" aria-label="Previous page">&larr;</button>
               <button class="reader-nav-arrow reader-nav-arrow--right" type="button" id="reader-next-inline" aria-label="Next page">&rarr;</button>
               <div class="reader-spread" id="reader-spread">
-                <article class="reader-page" id="reader-page-current" aria-label="Current page">
+                <div class="reader-page" id="reader-page-current" aria-label="Current page">
                   <div class="reader-page-surface">
                     <canvas class="reader-page-canvas" id="reader-canvas-current"></canvas>
                     <div class="reader-page-placeholder" id="reader-placeholder-current" hidden>Page</div>
                   </div>
                   <p class="reader-page-label" id="reader-label-current">Page 1</p>
-                </article>
+                </div>
               </div>
 
               <div class="reader-loading" id="reader-loading">
