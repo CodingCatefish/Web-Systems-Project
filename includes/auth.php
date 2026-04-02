@@ -892,18 +892,26 @@ function admin_catalog_schema(): array
 
 function count_books_sold_by_author()
 {
-    $statement = db()->prepare('SELECT COUNT(*) FROM Transactions INNER JOIN Book on(Book.bookID=Transactions.bookID) INNER JOIN AuthorList on(Book.bookID=AuthorList.bookID) INNER JOIN User on(AuthorList.authorID=User.userID) WHERE User.userID= ?');
+    $statement = db()->prepare('SELECT COUNT(*) FROM Transactions INNER JOIN Books on(Books.bookID=Transactions.bookID) INNER JOIN AuthorLists on(Books.bookID=AuthorLists.bookID) WHERE AuthorLists.author_id= ?');
     $statement->execute([$_SESSION['id']]);
-    $count = $statement->fetch()[0];
+    $count = $statement->fetch()["COUNT(*)"];
     return $count;
 }
 
 function count_books_by_author(){
-    $statement = db()->prepare('SELECT COUNT(*) FROM Book INNER JOIN AuthorList on(Book.bookID=AuthorList.bookID) INNER JOIN User on(AuthorList.authorID=User.userID) WHERE Book.vetted=1 AND User.userID= ?');
+    $statement = db()->prepare('SELECT COUNT(*) FROM Books INNER JOIN AuthorLists on(Books.bookID=AuthorLists.bookID) WHERE Books.vetted=1 AND AuthorLists.author_ID= ?');
     $statement->execute([$_SESSION['id']]);
-    $count = $statement->fetch()[0];
+    $count = $statement->fetch()["COUNT(*)"];
     return $count;
 }
+
+function sales_by_author_by_date(){
+    $statement = db()->prepare('SELECT COUNT(user_id) AS Sales,date_of_purchase AS Dates FROM bookstore.Transactions INNER JOIN AuthorLists ON (AuthorLists.bookID = Transactions.bookID) WHERE AuthorLists.author_id=? GROUP BY Transactions.date_of_purchase;');
+    $statement->execute([$_SESSION['id']]);
+    $sales = $statement->fetchAll();
+    return $sales;
+}
+
 
 function upload_book(string $title, float $price, string $blurb, string $image, string $pdf){
     $statement = db()->prepare('INSERT INTO Book values(?,?,?,?,?,0,?)');

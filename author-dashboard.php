@@ -1,6 +1,6 @@
 <?php
-declare(strict_types=1);
 
+declare(strict_types=1);
 require_once __DIR__ . '/includes/auth.php';
 
 no_cache();
@@ -8,11 +8,19 @@ $user = require_login();
 $role = (string) ($user['role'] ?? '');
 
 if ($role !== 'author' && $role !== 'admin') {
-    send_forbidden_page('Forbidden', 'Your account is signed in, but it does not have author dashboard access.');
+  send_forbidden_page('Forbidden', 'Your account is signed in, but it does not have author dashboard access.');
 }
+
+$bookCount = count_books_by_author();
+$bookSoldCount = count_books_sold_by_author();
+
+$SalesInfo = sales_by_author_by_date();
+$Dates = $SalesInfo["Dates"];
+$Sales = $SalesInfo["Sales"];
 ?>
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -30,6 +38,7 @@ if ($role !== 'author' && $role !== 'admin') {
     }
   </style>
 </head>
+
 <body>
   <a href="#main-content" class="skip-link">Skip to main content</a>
   <div class="site-shell">
@@ -56,18 +65,25 @@ if ($role !== 'author' && $role !== 'admin') {
         </div>
       </section>
       <section class="dashboard">
-        <h2>Books Published: 2</h2>
-        <h2>Total Books Sold: 100</h2>
+        <h2>Books Published:
+          <?php
+          echo $bookCount;
+          ?>
+        </h2>
+        <h2>Total Books Sold:
+          <?php
+          echo $bookSoldCount;
+          ?>
+        </h2>
         <div class="chart-container" style="position: relative; height: 40vh; width: 90vw; display: inline-block;">
           <canvas
             id="myChart"
             data-chart-title="Total Book Sales"
-            data-chart-labels='["2026-03-30","2026-03-31","2026-04-01"]'
-            data-chart-values="[20,50,100]"
+            data-chart-labels=<?php echo $Dates ?>
+            data-chart-values=<?php echo $Sales ?>
             aria-label="Line chart showing total book sales over time"
             role="img"
-            style="margin: 0 auto; width: 100%; height: 100%; display: block;"
-          ></canvas>
+            style="margin: 0 auto; width: 100%; height: 100%; display: block;"></canvas>
         </div>
       </section>
     </main>
@@ -104,4 +120,5 @@ if ($role !== 'author' && $role !== 'admin') {
   <script src="js/main.js"></script>
   <script src="js/author-dashboard.js"></script>
 </body>
+
 </html>
