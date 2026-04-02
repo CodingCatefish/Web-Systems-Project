@@ -1,5 +1,5 @@
 <?php
-/*
+
 declare(strict_types=1);
 require_once __DIR__ . '/includes/auth.php';
 if (request_method() === 'POST') {
@@ -87,7 +87,7 @@ if (request_method() === 'POST') {
   }
   print($errormsg);
 }
-*/
+
 ?>
 <!DOCTYPE html>
 <html lang="en">

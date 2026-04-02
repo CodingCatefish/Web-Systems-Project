@@ -892,16 +892,16 @@ function admin_catalog_schema(): array
 
 function count_books_sold_by_author()
 {
-    $statement = db()->prepare('SELECT COUNT(*) FROM Transactions INNER JOIN Book on(Book.bookID=Transactions.bookID) INNER JOIN AuthorList on(Book.bookID=AuthorList.bookID) INNER JOIN User on(AuthorList.authorID=User.userID) WHERE User.userID= ?');
+    $statement = db()->prepare('SELECT COUNT(*) FROM Transactions INNER JOIN Books on(Books.bookID=Transactions.bookID) INNER JOIN AuthorLists on(Books.bookID=AuthorLists.bookID) INNER JOIN Users on(AuthorLists.author_id=Users.ID) WHERE Users.id= ?');
     $statement->execute([$_SESSION['id']]);
-    $count = $statement->fetch()[0];
+    $count = $statement->fetch()["COUNT(*)"];
     return $count;
 }
 
 function count_books_by_author(){
-    $statement = db()->prepare('SELECT COUNT(*) FROM Book INNER JOIN AuthorList on(Book.bookID=AuthorList.bookID) INNER JOIN User on(AuthorList.authorID=User.userID) WHERE Book.vetted=1 AND User.userID= ?');
+    $statement = db()->prepare('SELECT COUNT(*) FROM Books INNER JOIN AuthorLists on(Books.bookID=AuthorLists.bookID) INNER JOIN Users on(AuthorLists.author_ID=Users.ID) WHERE Books.vetted=1 AND Users.ID= ?');
     $statement->execute([$_SESSION['id']]);
-    $count = $statement->fetch()[0];
+    $count = $statement->fetch()["COUNT(*)"];
     return $count;
 }
 
