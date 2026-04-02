@@ -778,28 +778,124 @@ function require_admin(): array
 
 function dashboard_counts(): array
 {
+    $schema = admin_catalog_schema();
+    $booksTable = $schema['books_table'];
+    $authorListsTable = $schema['author_lists_table'];
+    $transactionsTable = $schema['transactions_table'];
+
     return [
-        'books' => safe_table_count('Book'),
+        'books' => safe_table_count($booksTable),
+        'pending_books' => $booksTable === null ? null : safe_scalar_count(
+            'SELECT COUNT(*) FROM ' . sql_identifier($booksTable) . ' WHERE vetted = 0'
+        ),
+        'live_books' => $booksTable === null ? null : safe_scalar_count(
+            'SELECT COUNT(*) FROM ' . sql_identifier($booksTable) . ' WHERE vetted = 1'
+        ),
         'reviews' => safe_table_count('Review'),
         'users' => safe_table_count('Users'),
+        'authors' => safe_scalar_count('SELECT COUNT(*) FROM Users WHERE role = ?', ['author']),
+        'transactions' => safe_table_count($transactionsTable),
+        'author_links' => safe_table_count($authorListsTable),
     ];
 }
 
-function safe_table_count(string $tableName): ?int
+function sql_identifier(string $identifier): string
 {
-    $allowedTables = ['Book', 'Review', 'Users'];
-    if (!in_array($tableName, $allowedTables, true)) {
+    if (preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $identifier) !== 1) {
+        throw new InvalidArgumentException('Invalid SQL identifier: ' . $identifier);
+    }
+
+    return '`' . $identifier . '`';
+}
+
+function safe_table_count(?string $tableName): ?int
+{
+    if (!is_string($tableName) || $tableName === '') {
         return null;
     }
 
     try {
-        $statement = db()->query('SELECT COUNT(*) AS aggregate_count FROM ' . $tableName);
+        $statement = db()->query('SELECT COUNT(*) AS aggregate_count FROM ' . sql_identifier($tableName));
         $row = $statement->fetch();
         return is_array($row) ? (int) ($row['aggregate_count'] ?? 0) : 0;
     } catch (Throwable $error) {
         log_server_error('dashboard-count-' . strtolower($tableName), $error);
         return null;
     }
+}
+
+function safe_scalar_count(string $sql, array $params = []): ?int
+{
+    try {
+        $statement = db()->prepare($sql);
+        $statement->execute($params);
+        $value = $statement->fetchColumn();
+
+        return $value === false ? 0 : (int) $value;
+    } catch (Throwable $error) {
+        log_server_error('dashboard-scalar-count', $error);
+        return null;
+    }
+}
+
+function first_available_table(array $candidates): ?string
+{
+    foreach ($candidates as $candidate) {
+        if (!is_string($candidate) || $candidate === '') {
+            continue;
+        }
+
+        try {
+            db()->query('SELECT 1 FROM ' . sql_identifier($candidate) . ' LIMIT 1');
+            return $candidate;
+        } catch (Throwable $error) {
+            continue;
+        }
+    }
+
+    return null;
+}
+
+function first_available_column(string $tableName, array $candidates): ?string
+{
+    foreach ($candidates as $candidate) {
+        if (!is_string($candidate) || $candidate === '') {
+            continue;
+        }
+
+        try {
+            db()->query(
+                'SELECT ' . sql_identifier($candidate) . ' FROM ' . sql_identifier($tableName) . ' LIMIT 1'
+            );
+            return $candidate;
+        } catch (Throwable $error) {
+            continue;
+        }
+    }
+
+    return null;
+}
+
+function admin_catalog_schema(): array
+{
+    static $schema = null;
+
+    if (is_array($schema)) {
+        return $schema;
+    }
+
+    $authorListsTable = first_available_table(['AuthorLists', 'AuthorList']);
+    $transactionsTable = first_available_table(['Transactions']);
+
+    $schema = [
+        'books_table' => first_available_table(['Books', 'Book']),
+        'author_lists_table' => $authorListsTable,
+        'author_lists_author_column' => $authorListsTable === null ? null : first_available_column($authorListsTable, ['author_id', 'authorID']),
+        'transactions_table' => $transactionsTable,
+        'transactions_user_column' => $transactionsTable === null ? null : first_available_column($transactionsTable, ['user_id', 'userID']),
+    ];
+
+    return $schema;
 }
 
 function count_books_sold_by_author()
@@ -828,16 +924,539 @@ function upload_book(string $title, float $price, string $blurb, string $image, 
 
 }
 
-function get_all_users(): array
+function get_all_users(string $roleFilter = 'all'): array
 {
+    $schema = admin_catalog_schema();
+    $transactionsTable = $schema['transactions_table'];
+    $transactionsUserColumn = $schema['transactions_user_column'];
+    $authorListsTable = $schema['author_lists_table'];
+    $authorListsAuthorColumn = $schema['author_lists_author_column'];
+
+    $sql = 'SELECT
+                u.id,
+                u.name,
+                u.email,
+                u.role,
+                u.created_at, ';
+
+    if ($transactionsTable !== null && $transactionsUserColumn !== null) {
+        $sql .= '(SELECT COUNT(*)
+                  FROM ' . sql_identifier($transactionsTable) . ' t
+                  WHERE t.' . sql_identifier($transactionsUserColumn) . ' = u.id) AS purchase_count, ';
+    } else {
+        $sql .= '0 AS purchase_count, ';
+    }
+
+    if ($authorListsTable !== null && $authorListsAuthorColumn !== null) {
+        $sql .= '(SELECT COUNT(*)
+                  FROM ' . sql_identifier($authorListsTable) . ' al
+                  WHERE al.' . sql_identifier($authorListsAuthorColumn) . ' = u.id) AS authored_book_count ';
+    } else {
+        $sql .= '0 AS authored_book_count ';
+    }
+
+    $sql .= 'FROM Users u';
+    $params = [];
+
+    if (in_array($roleFilter, ['admin', 'author', 'customer'], true)) {
+        $sql .= ' WHERE u.role = ?';
+        $params[] = $roleFilter;
+    }
+
+    $sql .= ' ORDER BY u.created_at DESC, u.id DESC';
+
     try {
-        $statement = db()->query('SELECT id, name, email, role, created_at FROM Users ORDER BY created_at DESC');
+        $statement = db()->prepare($sql);
+        $statement->execute($params);
         $rows = $statement->fetchAll();
         return is_array($rows) ? $rows : [];
     } catch (Throwable $error) {
         log_server_error('admin-get-all-users', $error);
         return [];
     }
+}
+
+function get_user_profile(int $userId): ?array
+{
+    if ($userId <= 0) {
+        return null;
+    }
+
+    $schema = admin_catalog_schema();
+    $transactionsTable = $schema['transactions_table'];
+    $transactionsUserColumn = $schema['transactions_user_column'];
+    $authorListsTable = $schema['author_lists_table'];
+    $authorListsAuthorColumn = $schema['author_lists_author_column'];
+    $booksTable = $schema['books_table'];
+
+    $sql = 'SELECT
+                u.id,
+                u.name,
+                u.email,
+                u.role,
+                u.created_at, ';
+
+    if ($transactionsTable !== null && $transactionsUserColumn !== null) {
+        $sql .= '(SELECT COUNT(*)
+                  FROM ' . sql_identifier($transactionsTable) . ' t
+                  WHERE t.' . sql_identifier($transactionsUserColumn) . ' = u.id) AS purchase_count, ';
+    } else {
+        $sql .= '0 AS purchase_count, ';
+    }
+
+    if ($authorListsTable !== null && $authorListsAuthorColumn !== null) {
+        $sql .= '(SELECT COUNT(*)
+                  FROM ' . sql_identifier($authorListsTable) . ' al
+                  WHERE al.' . sql_identifier($authorListsAuthorColumn) . ' = u.id) AS authored_book_count ';
+    } else {
+        $sql .= '0 AS authored_book_count ';
+    }
+
+    $sql .= 'FROM Users u WHERE u.id = ? LIMIT 1';
+
+    try {
+        $statement = db()->prepare($sql);
+        $statement->execute([$userId]);
+        $user = $statement->fetch();
+
+        if (!is_array($user)) {
+            return null;
+        }
+
+        $user['recent_purchases'] = [];
+        $user['authored_books'] = [];
+        $user['authored_sales_count'] = 0;
+
+        if ($transactionsTable !== null && $transactionsUserColumn !== null && $booksTable !== null) {
+            $purchases = db()->prepare(
+                'SELECT
+                    b.bookID,
+                    b.title,
+                    MAX(t.date_of_purchase) AS purchased_on
+                 FROM ' . sql_identifier($transactionsTable) . ' t
+                 INNER JOIN ' . sql_identifier($booksTable) . ' b ON b.bookID = t.bookID
+                 WHERE t.' . sql_identifier($transactionsUserColumn) . ' = ?
+                 GROUP BY b.bookID, b.title
+                 ORDER BY purchased_on DESC, b.bookID DESC
+                 LIMIT 5'
+            );
+            $purchases->execute([$userId]);
+            $purchaseRows = $purchases->fetchAll();
+            $user['recent_purchases'] = is_array($purchaseRows) ? $purchaseRows : [];
+        }
+
+        if ($authorListsTable !== null && $authorListsAuthorColumn !== null && $booksTable !== null) {
+            $authoredBooksSql = 'SELECT
+                    b.bookID,
+                    b.title,
+                    b.price,
+                    b.vetted,
+                    b.created_date, ';
+
+            if ($transactionsTable !== null) {
+                $authoredBooksSql .= 'COUNT(t.bookID) AS sales_count ';
+            } else {
+                $authoredBooksSql .= '0 AS sales_count ';
+            }
+
+            $authoredBooksSql .= 'FROM ' . sql_identifier($authorListsTable) . ' al
+                 INNER JOIN ' . sql_identifier($booksTable) . ' b ON b.bookID = al.bookID ';
+
+            if ($transactionsTable !== null) {
+                $authoredBooksSql .= 'LEFT JOIN ' . sql_identifier($transactionsTable) . ' t ON t.bookID = b.bookID ';
+            }
+
+            $authoredBooksSql .= 'WHERE al.' . sql_identifier($authorListsAuthorColumn) . ' = ?
+                 GROUP BY b.bookID, b.title, b.price, b.vetted, b.created_date
+                 ORDER BY b.created_date DESC, b.bookID DESC
+                 LIMIT 8';
+
+            $authoredBooks = db()->prepare($authoredBooksSql);
+            $authoredBooks->execute([$userId]);
+            $authoredRows = $authoredBooks->fetchAll();
+            $user['authored_books'] = is_array($authoredRows) ? $authoredRows : [];
+
+            $salesCount = 0;
+            foreach ($user['authored_books'] as $book) {
+                $salesCount += (int) ($book['sales_count'] ?? 0);
+            }
+            $user['authored_sales_count'] = $salesCount;
+        }
+
+        return $user;
+    } catch (Throwable $error) {
+        log_server_error('admin-get-user-profile', $error);
+        return null;
+    }
+}
+
+function get_admin_books(string $statusFilter = 'all'): array
+{
+    $schema = admin_catalog_schema();
+    $booksTable = $schema['books_table'];
+
+    if ($booksTable === null) {
+        return [];
+    }
+
+    $authorListsTable = $schema['author_lists_table'];
+    $authorListsAuthorColumn = $schema['author_lists_author_column'];
+    $transactionsTable = $schema['transactions_table'];
+
+    $sql = 'SELECT
+                b.bookID,
+                b.title,
+                b.price,
+                b.blurb,
+                b.image,
+                b.pdf_refrence_path,
+                b.vetted,
+                b.created_date, ';
+
+    if ($authorListsTable !== null && $authorListsAuthorColumn !== null) {
+        $sql .= 'COALESCE(
+                    GROUP_CONCAT(DISTINCT authors.name ORDER BY authors.name SEPARATOR ", "),
+                    "Pagemark Author"
+                 ) AS author_names, ';
+    } else {
+        $sql .= '"Pagemark Author" AS author_names, ';
+    }
+
+    if ($transactionsTable !== null) {
+        $sql .= '(SELECT COUNT(*)
+                  FROM ' . sql_identifier($transactionsTable) . ' t
+                  WHERE t.bookID = b.bookID) AS sales_count ';
+    } else {
+        $sql .= '0 AS sales_count ';
+    }
+
+    $sql .= 'FROM ' . sql_identifier($booksTable) . ' b ';
+
+    if ($authorListsTable !== null && $authorListsAuthorColumn !== null) {
+        $sql .= 'LEFT JOIN ' . sql_identifier($authorListsTable) . ' al ON al.bookID = b.bookID
+                 LEFT JOIN Users authors ON authors.id = al.' . sql_identifier($authorListsAuthorColumn) . ' ';
+    }
+
+    $params = [];
+    if ($statusFilter === 'live') {
+        $sql .= 'WHERE b.vetted = 1 ';
+    } elseif ($statusFilter === 'pending') {
+        $sql .= 'WHERE b.vetted = 0 ';
+    }
+
+    $sql .= 'GROUP BY b.bookID, b.title, b.price, b.blurb, b.image, b.pdf_refrence_path, b.vetted, b.created_date
+             ORDER BY b.created_date DESC, b.bookID DESC';
+
+    try {
+        $statement = db()->prepare($sql);
+        $statement->execute($params);
+        $rows = $statement->fetchAll();
+        return is_array($rows) ? $rows : [];
+    } catch (Throwable $error) {
+        log_server_error('admin-get-books', $error);
+        return [];
+    }
+}
+
+function update_book_from_admin(
+    int $bookId,
+    string $title,
+    string $price,
+    string $blurb,
+    string $imagePath,
+    string $pdfReferencePath,
+    bool $isVetted
+): string {
+    if ($bookId <= 0) {
+        return 'invalid_book';
+    }
+
+    $title = trim($title);
+    $blurb = trim($blurb);
+    $imagePath = trim($imagePath);
+    $pdfReferencePath = trim($pdfReferencePath);
+
+    if ($title === '' || strlen($title) > 512) {
+        return 'invalid_title';
+    }
+
+    if ($price === '' || !is_numeric($price)) {
+        return 'invalid_price';
+    }
+
+    $priceValue = round((float) $price, 2);
+    if ($priceValue < 0) {
+        return 'invalid_price';
+    }
+
+    if (strlen($blurb) > 2048) {
+        return 'invalid_blurb';
+    }
+
+    if (strlen($imagePath) > 1024) {
+        return 'invalid_image_path';
+    }
+
+    if (strlen($pdfReferencePath) > 1024) {
+        return 'invalid_pdf_reference';
+    }
+
+    if ($pdfReferencePath !== '' && strtolower((string) pathinfo($pdfReferencePath, PATHINFO_EXTENSION)) !== 'pdf') {
+        return 'invalid_pdf_reference';
+    }
+
+    $schema = admin_catalog_schema();
+    $booksTable = $schema['books_table'];
+
+    if ($booksTable === null) {
+        return 'catalog_unavailable';
+    }
+
+    try {
+        $exists = db()->prepare('SELECT 1 FROM ' . sql_identifier($booksTable) . ' WHERE bookID = ? LIMIT 1');
+        $exists->execute([$bookId]);
+        if ($exists->fetchColumn() === false) {
+            return 'invalid_book';
+        }
+
+        $statement = db()->prepare(
+            'UPDATE ' . sql_identifier($booksTable) . '
+             SET title = ?,
+                 price = ?,
+                 blurb = ?,
+                 image = ?,
+                 pdf_refrence_path = ?,
+                 vetted = ?
+             WHERE bookID = ?
+             LIMIT 1'
+        );
+        $statement->execute([
+            $title,
+            $priceValue,
+            $blurb,
+            $imagePath,
+            $pdfReferencePath,
+            $isVetted ? 1 : 0,
+            $bookId,
+        ]);
+
+        return '';
+    } catch (Throwable $error) {
+        log_server_error('admin-update-book', $error);
+        return 'server_error';
+    }
+}
+
+function admin_user_roles(): array
+{
+    return ['customer', 'author', 'admin'];
+}
+
+function update_user_role_from_admin(int $targetUserId, string $newRole, int $actingAdminId): string
+{
+    $newRole = strtolower(trim($newRole));
+
+    if ($targetUserId <= 0) {
+        return 'invalid_user';
+    }
+
+    if (!in_array($newRole, admin_user_roles(), true)) {
+        return 'invalid_role';
+    }
+
+    if ($targetUserId === $actingAdminId && $newRole !== 'admin') {
+        return 'cannot_change_own_role';
+    }
+
+    try {
+        $statement = db()->prepare('SELECT id, role FROM Users WHERE id = ? LIMIT 1');
+        $statement->execute([$targetUserId]);
+        $user = $statement->fetch();
+
+        if (!is_array($user)) {
+            return 'invalid_user';
+        }
+
+        if ((string) ($user['role'] ?? '') === $newRole) {
+            return '';
+        }
+
+        $update = db()->prepare('UPDATE Users SET role = ? WHERE id = ? LIMIT 1');
+        $update->execute([$newRole, $targetUserId]);
+
+        return '';
+    } catch (Throwable $error) {
+        log_server_error('admin-update-user-role', $error);
+        return 'server_error';
+    }
+}
+
+function get_admin_reviews(): array
+{
+    return get_reviews();
+}
+
+function delete_review_from_admin(int $reviewId): string
+{
+    if ($reviewId <= 0) {
+        return 'invalid_review';
+    }
+
+    try {
+        $exists = db()->prepare('SELECT 1 FROM Review WHERE reviewID = ? LIMIT 1');
+        $exists->execute([$reviewId]);
+
+        if ($exists->fetchColumn() === false) {
+            return 'invalid_review';
+        }
+
+        $delete = db()->prepare('DELETE FROM Review WHERE reviewID = ? LIMIT 1');
+        $delete->execute([$reviewId]);
+
+        return '';
+    } catch (Throwable $error) {
+        log_server_error('admin-delete-review', $error);
+        return 'server_error';
+    }
+}
+
+function get_admin_transaction_rows(?int $limit = 25): array
+{
+    $schema = admin_catalog_schema();
+    $transactionsTable = $schema['transactions_table'];
+    $transactionsUserColumn = $schema['transactions_user_column'];
+    $booksTable = $schema['books_table'];
+
+    if ($transactionsTable === null || $transactionsUserColumn === null || $booksTable === null) {
+        return [];
+    }
+
+    $sql = 'SELECT
+                t.' . sql_identifier($transactionsUserColumn) . ' AS user_id,
+                t.bookID,
+                t.date_of_purchase,
+                COALESCE(u.name, "Unknown User") AS customer_name,
+                COALESCE(u.email, "") AS customer_email,
+                COALESCE(b.title, "Unknown Book") AS book_title,
+                COALESCE(b.price, 0) AS current_price
+            FROM ' . sql_identifier($transactionsTable) . ' t
+            LEFT JOIN Users u ON u.id = t.' . sql_identifier($transactionsUserColumn) . '
+            LEFT JOIN ' . sql_identifier($booksTable) . ' b ON b.bookID = t.bookID
+            ORDER BY t.date_of_purchase DESC, t.bookID DESC';
+
+    if (is_int($limit) && $limit > 0) {
+        $sql .= ' LIMIT ' . $limit;
+    }
+
+    try {
+        $statement = db()->query($sql);
+        $rows = $statement->fetchAll();
+        return is_array($rows) ? $rows : [];
+    } catch (Throwable $error) {
+        log_server_error('admin-transaction-rows', $error);
+        return [];
+    }
+}
+
+function get_admin_transaction_report(): array
+{
+    $schema = admin_catalog_schema();
+    $transactionsTable = $schema['transactions_table'];
+    $transactionsUserColumn = $schema['transactions_user_column'];
+    $booksTable = $schema['books_table'];
+
+    $report = [
+        'summary' => [
+            'total_transactions' => null,
+            'unique_customers' => null,
+            'unique_books' => null,
+            'estimated_revenue' => null,
+            'most_recent_purchase' => null,
+        ],
+        'recent_transactions' => [],
+        'top_books' => [],
+        'top_customers' => [],
+    ];
+
+    if ($transactionsTable === null || $transactionsUserColumn === null || $booksTable === null) {
+        return $report;
+    }
+
+    $report['summary']['total_transactions'] = safe_table_count($transactionsTable);
+    $report['summary']['unique_customers'] = safe_scalar_count(
+        'SELECT COUNT(DISTINCT ' . sql_identifier($transactionsUserColumn) . ') FROM ' . sql_identifier($transactionsTable)
+    );
+    $report['summary']['unique_books'] = safe_scalar_count(
+        'SELECT COUNT(DISTINCT bookID) FROM ' . sql_identifier($transactionsTable)
+    );
+    try {
+        $statement = db()->query(
+            'SELECT COALESCE(SUM(b.price), 0) AS estimated_revenue
+             FROM ' . sql_identifier($transactionsTable) . ' t
+             INNER JOIN ' . sql_identifier($booksTable) . ' b ON b.bookID = t.bookID'
+        );
+        $row = $statement->fetch();
+        if (is_array($row)) {
+            $report['summary']['estimated_revenue'] = (float) ($row['estimated_revenue'] ?? 0);
+        }
+    } catch (Throwable $error) {
+        log_server_error('admin-transaction-summary-revenue', $error);
+    }
+
+    try {
+        $statement = db()->query(
+            'SELECT MAX(date_of_purchase) AS most_recent_purchase
+             FROM ' . sql_identifier($transactionsTable)
+        );
+        $row = $statement->fetch();
+        if (is_array($row)) {
+            $report['summary']['most_recent_purchase'] = (string) ($row['most_recent_purchase'] ?? '');
+        }
+    } catch (Throwable $error) {
+        log_server_error('admin-transaction-summary-date', $error);
+    }
+
+    $report['recent_transactions'] = get_admin_transaction_rows(12);
+
+    try {
+        $topBooks = db()->query(
+            'SELECT
+                b.bookID,
+                COALESCE(b.title, "Unknown Book") AS title,
+                COUNT(*) AS sales_count,
+                COALESCE(SUM(b.price), 0) AS estimated_revenue
+             FROM ' . sql_identifier($transactionsTable) . ' t
+             INNER JOIN ' . sql_identifier($booksTable) . ' b ON b.bookID = t.bookID
+             GROUP BY b.bookID, b.title
+             ORDER BY sales_count DESC, estimated_revenue DESC, b.bookID DESC
+             LIMIT 5'
+        );
+        $topBookRows = $topBooks->fetchAll();
+        $report['top_books'] = is_array($topBookRows) ? $topBookRows : [];
+    } catch (Throwable $error) {
+        log_server_error('admin-transaction-top-books', $error);
+    }
+
+    try {
+        $topCustomers = db()->query(
+            'SELECT
+                t.' . sql_identifier($transactionsUserColumn) . ' AS user_id,
+                COALESCE(u.name, "Unknown User") AS customer_name,
+                COALESCE(u.email, "") AS customer_email,
+                COUNT(*) AS purchase_count
+             FROM ' . sql_identifier($transactionsTable) . ' t
+             LEFT JOIN Users u ON u.id = t.' . sql_identifier($transactionsUserColumn) . '
+             GROUP BY t.' . sql_identifier($transactionsUserColumn) . ', u.name, u.email
+             ORDER BY purchase_count DESC, user_id DESC
+             LIMIT 5'
+        );
+        $topCustomerRows = $topCustomers->fetchAll();
+        $report['top_customers'] = is_array($topCustomerRows) ? $topCustomerRows : [];
+    } catch (Throwable $error) {
+        log_server_error('admin-transaction-top-customers', $error);
+    }
+
+    return $report;
 }
 
 function save_review(string $reviewerName, string $bookTitle, int $rating, string $content): bool
