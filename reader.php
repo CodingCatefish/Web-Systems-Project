@@ -157,13 +157,13 @@ if (resolve_uploaded_pdf_path((string) ($book['pdf_refrence_path'] ?? '')) === n
     }
 
     .reader-book.is-flipping-forward::before {
-      transform-origin: left center;
-      animation: page-flip-forward 520ms cubic-bezier(0.2, 0, 0, 1);
+      transform-origin: right center;
+      animation: page-flip-backward 520ms cubic-bezier(0.2, 0, 0, 1);
     }
 
     .reader-book.is-flipping-backward::before {
-      transform-origin: right center;
-      animation: page-flip-backward 520ms cubic-bezier(0.2, 0, 0, 1);
+      transform-origin: left center;
+      animation: page-flip-forward 520ms cubic-bezier(0.2, 0, 0, 1);
     }
 
     .reader-spread {

@@ -194,21 +194,7 @@ function initReader() {
   }
 
   function animateFlip(direction) {
-    if (!direction) {
-      return;
-    }
-
-    bookShell.classList.remove('is-flipping-forward', 'is-flipping-backward');
-
-    window.requestAnimationFrame(function () {
-      bookShell.classList.add(
-        direction === 'backward' ? 'is-flipping-backward' : 'is-flipping-forward'
-      );
-
-      window.setTimeout(function () {
-        bookShell.classList.remove('is-flipping-forward', 'is-flipping-backward');
-      }, 560);
-    });
+    return;
   }
 
   function getPage(pageNumber) {
