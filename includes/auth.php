@@ -784,19 +784,10 @@ function dashboard_counts(): array
     $transactionsTable = $schema['transactions_table'];
 
     return [
-        'books' => safe_table_count($booksTable),
-        'pending_books' => $booksTable === null ? null : safe_scalar_count(
-            'SELECT COUNT(*) FROM ' . sql_identifier($booksTable) . ' WHERE vetted = 0'
-        ),
-        'live_books' => $booksTable === null ? null : safe_scalar_count(
-            'SELECT COUNT(*) FROM ' . sql_identifier($booksTable) . ' WHERE vetted = 1'
-        ),
-        'reviews' => safe_table_count('Review'),
-        'users' => safe_table_count('Users'),
-        'authors' => safe_scalar_count('SELECT COUNT(*) FROM Users WHERE role = ?', ['author']),
-        'transactions' => safe_table_count($transactionsTable),
-        'author_links' => safe_table_count($authorListsTable),
-    ];
+        'books' => safe_table_count('Book'),
+        'reviews' => safe_table_count('Reviews'),
+        'users' => safe_table_count('users'),
+        ];
 }
 
 function sql_identifier(string $identifier): string
@@ -810,7 +801,8 @@ function sql_identifier(string $identifier): string
 
 function safe_table_count(?string $tableName): ?int
 {
-    if (!is_string($tableName) || $tableName === '') {
+    $allowedTables = ['Book', 'Reviews', 'Users'];
+    if (!in_array($tableName, $allowedTables, true)) {
         return null;
     }
 
@@ -1463,7 +1455,7 @@ function save_review(string $reviewerName, string $bookTitle, int $rating, strin
 {
     try {
         $statement = db()->prepare(
-            'INSERT INTO Review (reviewer_name, book_title, content, rating, created_date)
+            'INSERT INTO Reviews (reviewer_name, book_title, content, rating, created_date)
              VALUES (?, ?, ?, ?, CURDATE())'
         );
         $statement->execute([$reviewerName, $bookTitle, $content, $rating]);
@@ -1480,7 +1472,7 @@ function get_reviews(): array
         $statement = db()->query(
             'SELECT reviewID AS id, reviewer_name AS name, book_title AS book,
                     content AS text, rating, created_date AS date
-             FROM Review
+             FROM Reviews
              ORDER BY created_date DESC, reviewID DESC'
         );
         $rows = $statement->fetchAll();
