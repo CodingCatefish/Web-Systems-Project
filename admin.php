@@ -263,7 +263,7 @@ if ($selectedUser === null && $users !== []) {
     .admin-notice-error { background: #fbe6e8; color: #8b2430; }
     .admin-filter-row { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .9rem; }
     .admin-chip { display: inline-flex; padding: .35rem .75rem; border-radius: 999px; border: 1px solid rgba(26,32,44,.12); text-decoration: none; color: var(--color-primary); font-weight: 700; }
-    .admin-chip.is-active { background: var(--color-accent); border-color: var(--color-accent); color: #fff; }
+    .admin-chip.is-active { background: var(--color-accent-strong); border-color: var(--color-accent-strong); color: #fff; }
     .admin-table-wrap { overflow-x: auto; }
     .admin-table { width: 100%; border-collapse: collapse; }
     .admin-table th, .admin-table td { padding: .75rem .55rem; border-bottom: 1px solid rgba(26,32,44,.08); text-align: left; vertical-align: top; }
@@ -384,7 +384,7 @@ if ($selectedUser === null && $users !== []) {
               <?php endif; ?>
             </div>
 
-            <aside class="admin-card">
+            <section class="admin-card">
               <?php if (!is_array($selectedUser)): ?>
                 <h2>No profile selected</h2>
                 <p class="admin-note">Select a user from the table to view profile details.</p>
@@ -463,7 +463,7 @@ if ($selectedUser === null && $users !== []) {
                   </ul>
                 <?php endif; ?>
               <?php endif; ?>
-            </aside>
+            </section>
           </div>
         </section>
 

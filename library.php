@@ -214,11 +214,11 @@ function library_meta_text(array $book): string
     <footer class="site-footer">
       <div class="container footer-grid">
         <section>
-          <h4>Pagemark</h4>
+          <h2>Pagemark</h2>
           <p>Curated books, a welcoming space, and a strong reading community all year round.</p>
         </section>
         <section>
-          <h4>Explore</h4>
+          <h2>Explore</h2>
           <ul class="footer-links">
             <li><a href="books.html">View Books</a></li>
             <li><a href="library.php">My Library</a></li>
@@ -226,7 +226,7 @@ function library_meta_text(array $book): string
           </ul>
         </section>
         <section>
-          <h4>Information</h4>
+          <h2>Information</h2>
           <ul class="footer-links">
             <li><a href="about.html">About Us</a></li>
             <li><a href="reviews.html">Reviews</a></li>
