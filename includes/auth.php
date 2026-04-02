@@ -447,7 +447,7 @@ function require_valid_form_post(string $redirectPath, array $params = []): void
 
 function find_user_by_email(string $email): ?array
 {
-    $statement = db()->prepare('SELECT id, name, email, password_hash, role FROM users WHERE email = ? LIMIT 1');
+    $statement = db()->prepare('SELECT id, name, email, password_hash, role FROM Users WHERE email = ? LIMIT 1');
     $statement->execute([$email]);
     $user = $statement->fetch();
 
@@ -469,7 +469,7 @@ function get_login_rate_limit_state(string $email, string $ipAddress): array
     try {
         $statement = db()->prepare(
             'SELECT attempt_count, UNIX_TIMESTAMP(first_attempt_at) AS first_attempt_ts
-             FROM login_attempts
+             FROM LoginAttempts
              WHERE email = ? AND ip_address = ?
              LIMIT 1'
         );
@@ -512,14 +512,14 @@ function record_failed_login_attempt(string $email, string $ipAddress): array
 
         if ($state['attempt_count'] > 0) {
             $statement = db()->prepare(
-                'UPDATE login_attempts
+                'UPDATE LoginAttempts
                  SET attempt_count = attempt_count + 1, last_attempt_at = UTC_TIMESTAMP()
                  WHERE email = ? AND ip_address = ?'
             );
             $statement->execute([$email, $ipAddress]);
         } else {
             $statement = db()->prepare(
-                'INSERT INTO login_attempts (email, ip_address, attempt_count, first_attempt_at, last_attempt_at)
+                'INSERT INTO LoginAttempts (email, ip_address, attempt_count, first_attempt_at, last_attempt_at)
                  VALUES (?, ?, 1, UTC_TIMESTAMP(), UTC_TIMESTAMP())'
             );
             $statement->execute([$email, $ipAddress]);
@@ -538,7 +538,7 @@ function clear_login_rate_limit_state(string $email, string $ipAddress): void
     }
 
     try {
-        $statement = db()->prepare('DELETE FROM login_attempts WHERE email = ? AND ip_address = ?');
+        $statement = db()->prepare('DELETE FROM LoginAttempts WHERE email = ? AND ip_address = ?');
         $statement->execute([$email, $ipAddress]);
     } catch (Throwable $error) {
         log_server_error('login-rate-limit-clear', $error);
@@ -580,14 +580,14 @@ function create_password_reset(string $email): ?string
         $pdo->beginTransaction();
 
         $invalidateStatement = $pdo->prepare(
-            'UPDATE password_resets
+            'UPDATE PasswordResets
              SET used_at = UTC_TIMESTAMP()
              WHERE user_id = ? AND used_at IS NULL'
         );
         $invalidateStatement->execute([(int) $user['id']]);
 
         $insertStatement = $pdo->prepare(
-            'INSERT INTO password_resets (user_id, token_hash, expires_at, requested_ip, user_agent)
+            'INSERT INTO PasswordResets (user_id, token_hash, expires_at, requested_ip, user_agent)
              VALUES (?, ?, DATE_ADD(UTC_TIMESTAMP(), INTERVAL ? SECOND), ?, ?)'
         );
         $insertStatement->execute([
@@ -623,8 +623,8 @@ function find_valid_password_reset(string $token): ?array
 
     $statement = db()->prepare(
         'SELECT pr.id, pr.user_id, pr.expires_at, pr.used_at, u.email, u.name
-         FROM password_resets pr
-         INNER JOIN users u ON u.id = pr.user_id
+         FROM PasswordResets pr
+         INNER JOIN Users u ON u.id = pr.user_id
          WHERE pr.token_hash = ?
          LIMIT 1'
     );
@@ -664,8 +664,8 @@ function reset_password_with_token(string $token, string $password): string
 
         $resetStatement = $pdo->prepare(
             'SELECT pr.id, pr.user_id, pr.expires_at, pr.used_at, u.email
-             FROM password_resets pr
-             INNER JOIN users u ON u.id = pr.user_id
+             FROM PasswordResets pr
+             INNER JOIN Users u ON u.id = pr.user_id
              WHERE pr.token_hash = ?
              LIMIT 1
              FOR UPDATE'
@@ -684,14 +684,14 @@ function reset_password_with_token(string $token, string $password): string
             return 'expired_reset_token';
         }
 
-        $updatePassword = $pdo->prepare('UPDATE users SET password_hash = ? WHERE id = ?');
+        $updatePassword = $pdo->prepare('UPDATE Users SET password_hash = ? WHERE id = ?');
         $updatePassword->execute([
             password_hash($password, PASSWORD_DEFAULT),
             (int) $reset['user_id'],
         ]);
 
         $markUsed = $pdo->prepare(
-            'UPDATE password_resets
+            'UPDATE PasswordResets
              SET used_at = UTC_TIMESTAMP()
              WHERE id = ? AND used_at IS NULL AND expires_at >= UTC_TIMESTAMP()'
         );
@@ -702,7 +702,7 @@ function reset_password_with_token(string $token, string $password): string
             return 'expired_reset_token';
         }
 
-        $clearAttempts = $pdo->prepare('DELETE FROM login_attempts WHERE email = ?');
+        $clearAttempts = $pdo->prepare('DELETE FROM LoginAttempts WHERE email = ?');
         $clearAttempts->execute([(string) $reset['email']]);
 
         $pdo->commit();
@@ -782,12 +782,12 @@ function dashboard_counts(): array
         'books' => safe_table_count('Book'),
         'reviews' => safe_table_count('Reviews'),
         'users' => safe_table_count('users'),
-    ];
+        ];
 }
 
 function safe_table_count(string $tableName): ?int
 {
-    $allowedTables = ['Book', 'Reviews', 'users'];
+    $allowedTables = ['Book', 'Reviews', 'Users'];
     if (!in_array($tableName, $allowedTables, true)) {
         return null;
     }
@@ -831,7 +831,7 @@ function upload_book(string $title, float $price, string $blurb, string $image, 
 function get_all_users(): array
 {
     try {
-        $statement = db()->query('SELECT id, name, email, role, created_at FROM users ORDER BY created_at DESC');
+        $statement = db()->query('SELECT id, name, email, role, created_at FROM Users ORDER BY created_at DESC');
         $rows = $statement->fetchAll();
         return is_array($rows) ? $rows : [];
     } catch (Throwable $error) {
@@ -870,4 +870,229 @@ function get_reviews(): array
         log_server_error('get-reviews', $error);
         return [];
     }
+}
+
+function require_login(): array
+{
+    $user = current_user();
+
+    if ($user === null) {
+        log_security_event('customer_access_requires_login');
+        redirect_with_query('login.php', ['auth_error' => 'login_required']);
+    }
+
+    return $user;
+}
+
+function fetch_catalog_books(): array
+{
+    $statement = db()->prepare(
+        'SELECT
+            Books.bookID,
+            Books.title,
+            Books.price,
+            Books.blurb,
+            Books.image,
+            Books.pdf_refrence_path,
+            Books.created_date,
+            COALESCE(GROUP_CONCAT(DISTINCT Authors.name ORDER BY Authors.name SEPARATOR ", "), "Pagemark Author") AS author_names
+         FROM Books
+         LEFT JOIN AuthorLists ON AuthorLists.bookID = Books.bookID
+         LEFT JOIN Users AS Authors ON Authors.id = AuthorLists.author_id
+         WHERE Books.vetted = 1
+         GROUP BY Books.bookID, Books.title, Books.price, Books.blurb, Books.image, Books.pdf_refrence_path, Books.created_date
+         ORDER BY Books.created_date DESC, Books.bookID DESC'
+    );
+    $statement->execute();
+
+    $rows = $statement->fetchAll();
+
+    return is_array($rows) ? $rows : [];
+}
+
+function fetch_library_books_for_user(array $user): array
+{
+    $role = (string) ($user['role'] ?? '');
+    $userId = (int) ($user['id'] ?? 0);
+
+    if ($role === 'admin') {
+        $statement = db()->prepare(
+            'SELECT
+                Books.bookID,
+                Books.title,
+                Books.price,
+                Books.blurb,
+                Books.image,
+                Books.pdf_refrence_path,
+                MAX(Transactions.date_of_purchase) AS date_of_purchase,
+                COALESCE(GROUP_CONCAT(DISTINCT Authors.name ORDER BY Authors.name SEPARATOR ", "), "Pagemark Author") AS author_names
+             FROM Books
+             LEFT JOIN Transactions ON Transactions.bookID = Books.bookID
+             LEFT JOIN AuthorLists ON AuthorLists.bookID = Books.bookID
+             LEFT JOIN Users AS Authors ON Authors.id = AuthorLists.author_id
+             WHERE Books.vetted = 1 AND Books.pdf_refrence_path IS NOT NULL AND Books.pdf_refrence_path <> ""
+             GROUP BY Books.bookID, Books.title, Books.price, Books.blurb, Books.image, Books.pdf_refrence_path
+             ORDER BY date_of_purchase DESC, Books.bookID DESC'
+        );
+        $statement->execute();
+    } else {
+        $statement = db()->prepare(
+            'SELECT
+                Books.bookID,
+                Books.title,
+                Books.price,
+                Books.blurb,
+                Books.image,
+                Books.pdf_refrence_path,
+                MAX(Transactions.date_of_purchase) AS date_of_purchase,
+                COALESCE(GROUP_CONCAT(DISTINCT Authors.name ORDER BY Authors.name SEPARATOR ", "), "Pagemark Author") AS author_names
+             FROM Transactions
+             INNER JOIN Books ON Books.bookID = Transactions.bookID
+             LEFT JOIN AuthorLists ON AuthorLists.bookID = Books.bookID
+             LEFT JOIN Users AS Authors ON Authors.id = AuthorLists.author_id
+             WHERE Transactions.user_id = ? AND Books.pdf_refrence_path IS NOT NULL AND Books.pdf_refrence_path <> ""
+             GROUP BY Books.bookID, Books.title, Books.price, Books.blurb, Books.image, Books.pdf_refrence_path
+             ORDER BY date_of_purchase DESC, Books.bookID DESC'
+        );
+        $statement->execute([$userId]);
+    }
+
+    $rows = $statement->fetchAll();
+
+    return is_array($rows) ? $rows : [];
+}
+
+function find_book_by_id(int $bookId): ?array
+{
+    if ($bookId <= 0) {
+        return null;
+    }
+
+    $statement = db()->prepare(
+        'SELECT
+            Books.bookID,
+            Books.title,
+            Books.price,
+            Books.blurb,
+            Books.image,
+            Books.pdf_refrence_path,
+            Books.vetted,
+            Books.created_date,
+            COALESCE(GROUP_CONCAT(DISTINCT Authors.name ORDER BY Authors.name SEPARATOR ", "), "Pagemark Author") AS author_names
+         FROM Books
+         LEFT JOIN AuthorLists ON AuthorLists.bookID = Books.bookID
+         LEFT JOIN Users AS Authors ON Authors.id = AuthorLists.author_id
+         WHERE Books.bookID = ?
+         GROUP BY Books.bookID, Books.title, Books.price, Books.blurb, Books.image, Books.pdf_refrence_path, Books.vetted, Books.created_date
+         LIMIT 1'
+    );
+    $statement->execute([$bookId]);
+    $book = $statement->fetch();
+
+    return is_array($book) ? $book : null;
+}
+
+function user_can_access_book(array $user, int $bookId): bool
+{
+    if ($bookId <= 0) {
+        return false;
+    }
+
+    $role = (string) ($user['role'] ?? '');
+    $userId = (int) ($user['id'] ?? 0);
+
+    if ($role === 'admin') {
+        return true;
+    }
+
+    if ($role === 'author' && $userId > 0) {
+        $statement = db()->prepare('SELECT 1 FROM AuthorLists WHERE bookID = ? AND author_id = ? LIMIT 1');
+        $statement->execute([$bookId, $userId]);
+        if ($statement->fetchColumn() !== false) {
+            return true;
+        }
+    }
+
+    if ($userId <= 0) {
+        return false;
+    }
+
+    $statement = db()->prepare('SELECT 1 FROM Transactions WHERE user_id = ? AND bookID = ? LIMIT 1');
+    $statement->execute([$userId, $bookId]);
+
+    return $statement->fetchColumn() !== false;
+}
+
+function resolve_uploaded_pdf_path(string $referencePath): ?string
+{
+    $referencePath = trim(str_replace('\\', '/', $referencePath));
+    if ($referencePath === '') {
+        return null;
+    }
+
+    $uploadsRoot = realpath(dirname(__DIR__) . '/uploads');
+    if ($uploadsRoot === false) {
+        return null;
+    }
+
+    $uploadsRoot = str_replace('\\', '/', $uploadsRoot);
+    $absolutePath = realpath(dirname(__DIR__) . '/' . ltrim($referencePath, '/'));
+    if ($absolutePath === false) {
+        return null;
+    }
+
+    $absolutePath = str_replace('\\', '/', $absolutePath);
+    if (strpos($absolutePath, $uploadsRoot . '/') !== 0 && $absolutePath !== $uploadsRoot) {
+        return null;
+    }
+
+    if (!is_file($absolutePath)) {
+        return null;
+    }
+
+    if (strtolower((string) pathinfo($absolutePath, PATHINFO_EXTENSION)) !== 'pdf') {
+        return null;
+    }
+
+    return $absolutePath;
+}
+
+function record_transactions_for_user(int $userId, array $bookIds): int
+{
+    if ($userId <= 0) {
+        throw new RuntimeException('A persisted customer account is required to record purchases.');
+    }
+
+    $normalizedIds = array_values(array_unique(array_map('intval', $bookIds)));
+    $normalizedIds = array_values(array_filter($normalizedIds, function (int $bookId): bool {
+        return $bookId > 0;
+    }));
+
+    if ($normalizedIds === []) {
+        return 0;
+    }
+
+    $placeholders = implode(',', array_fill(0, count($normalizedIds), '?'));
+    $statement = db()->prepare(
+        'SELECT bookID
+         FROM Books
+         WHERE vetted = 1 AND pdf_refrence_path IS NOT NULL AND pdf_refrence_path <> "" AND bookID IN (' . $placeholders . ')'
+    );
+    $statement->execute($normalizedIds);
+    $allowedIds = array_map('intval', array_column($statement->fetchAll(), 'bookID'));
+
+    if ($allowedIds === []) {
+        return 0;
+    }
+
+    $inserted = 0;
+    $insert = db()->prepare('INSERT IGNORE INTO Transactions (user_id, bookID, date_of_purchase) VALUES (?, ?, ?)');
+    $purchaseDate = date('Y-m-d');
+
+    foreach ($allowedIds as $bookId) {
+        $insert->execute([$userId, $bookId, $purchaseDate]);
+        $inserted += $insert->rowCount();
+    }
+
+    return $inserted;
 }

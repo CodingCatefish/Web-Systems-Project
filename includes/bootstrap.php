@@ -34,13 +34,61 @@ function app_show_reset_debug_link(): bool
     return env_flag('SHOW_RESET_DEBUG_LINK');
 }
 
+function remote_address(): string
+{
+    return normalize_ip_address((string) ($_SERVER['REMOTE_ADDR'] ?? ''));
+}
+
+function is_trusted_proxy_request(): bool
+{
+    $remoteAddress = remote_address();
+    if ($remoteAddress === '') {
+        return false;
+    }
+
+    return in_array($remoteAddress, trusted_proxy_addresses(), true);
+}
+
+function forwarded_proto(): string
+{
+    if (!is_trusted_proxy_request()) {
+        return '';
+    }
+
+    $xForwardedProto = trim((string) ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? ''));
+    if ($xForwardedProto !== '') {
+        $parts = array_map('trim', explode(',', strtolower($xForwardedProto)));
+        $proto = (string) ($parts[0] ?? '');
+        if ($proto === 'https' || $proto === 'http') {
+            return $proto;
+        }
+    }
+
+    $forwarded = trim((string) ($_SERVER['HTTP_FORWARDED'] ?? ''));
+    if ($forwarded !== '' && preg_match('/proto=(https|http)/i', $forwarded, $matches) === 1) {
+        return strtolower((string) $matches[1]);
+    }
+
+    return '';
+}
+
 function is_secure_request(): bool
 {
-    if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') {
+    $forwardedProto = forwarded_proto();
+    if ($forwardedProto !== '') {
+        return $forwardedProto === 'https';
+    }
+
+    $requestScheme = strtolower(trim((string) ($_SERVER['REQUEST_SCHEME'] ?? '')));
+    if ($requestScheme === 'https') {
         return true;
     }
 
     if (isset($_SERVER['SERVER_PORT']) && (int) $_SERVER['SERVER_PORT'] === 443) {
+        return true;
+    }
+
+    if (trim((string) ($_SERVER['SSL_PROTOCOL'] ?? '')) !== '') {
         return true;
     }
 
@@ -56,6 +104,7 @@ function apply_security_headers(): void
         "img-src 'self' data: https://picsum.photos https://fastly.picsum.photos; " .
         "font-src 'self' https://fonts.gstatic.com; " .
         "connect-src 'self'; " .
+        "frame-src 'self' blob:; " .
         "object-src 'none'; " .
         "base-uri 'self'; " .
         "form-action 'self'; " .
@@ -64,6 +113,10 @@ function apply_security_headers(): void
     header('Permissions-Policy: camera=(), geolocation=(), microphone=()');
     header('Referrer-Policy: strict-origin-when-cross-origin');
     header('X-Content-Type-Options: nosniff');
+
+    if (app_is_production() && is_secure_request()) {
+        header('Strict-Transport-Security: max-age=31536000; includeSubDomains');
+    }
 }
 
 function start_app_session(): void
@@ -121,10 +174,20 @@ function request_method(): string
     return strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
 }
 
+function request_host(): string
+{
+    $host = trim((string) ($_SERVER['HTTP_HOST'] ?? ''));
+    if ($host === '') {
+        return '';
+    }
+
+    return preg_match('/^[A-Za-z0-9.\-:\[\]]+$/', $host) === 1 ? $host : '';
+}
+
 function current_origin(): string
 {
     $scheme = is_secure_request() ? 'https' : 'http';
-    $host = $_SERVER['HTTP_HOST'] ?? '';
+    $host = request_host();
 
     return $host !== '' ? $scheme . '://' . $host : '';
 }
@@ -219,10 +282,9 @@ function normalize_ip_address(string $value): string
 
 function client_ip(): string
 {
-    $remoteAddress = normalize_ip_address((string) ($_SERVER['REMOTE_ADDR'] ?? ''));
-    $trustedProxies = trusted_proxy_addresses();
+    $remoteAddress = remote_address();
 
-    if ($remoteAddress !== '' && in_array($remoteAddress, $trustedProxies, true)) {
+    if (is_trusted_proxy_request()) {
         $cfConnectingIp = normalize_ip_address((string) ($_SERVER['HTTP_CF_CONNECTING_IP'] ?? ''));
         if ($cfConnectingIp !== '') {
             return $cfConnectingIp;
@@ -309,6 +371,23 @@ function redirect_to(string $location, int $statusCode = 302): never
     exit;
 }
 
+function enforce_https_request(): void
+{
+    if (!app_is_production() || is_secure_request()) {
+        return;
+    }
+
+    $host = request_host();
+    log_security_event('insecure_production_request_blocked', ['host' => $host]);
+
+    if ($host !== '' && in_array(request_method(), ['GET', 'HEAD'], true)) {
+        $requestUri = (string) ($_SERVER['REQUEST_URI'] ?? '/');
+        redirect_to('https://' . $host . $requestUri, 308);
+    }
+
+    send_text(400, 'HTTPS required');
+}
+
 function log_server_error(string $context, Throwable $error): void
 {
     error_log(sprintf('[%s] %s', $context, $error->getMessage()));
@@ -335,5 +414,14 @@ function log_security_event(string $event, array $context = []): void
     error_log('[security] ' . json_encode($payload, JSON_UNESCAPED_SLASHES));
 }
 
+if (app_is_production() && app_show_reset_debug_link()) {
+    error_log('[security] SHOW_RESET_DEBUG_LINK must be disabled when APP_ENV=production.');
+    http_response_code(500);
+    header('Content-Type: text/plain; charset=utf-8');
+    echo 'Application configuration error.';
+    exit;
+}
+
+enforce_https_request();
 apply_security_headers();
 start_app_session();
