@@ -327,6 +327,46 @@ function admin_password(): string
     return is_string($password) ? $password : '';
 }
 
+function current_script_name(): string
+{
+    return basename((string) ($_SERVER['SCRIPT_NAME'] ?? ''));
+}
+
+function is_current_script(string $scriptName): bool
+{
+    return current_script_name() === $scriptName;
+}
+
+function current_user_id(): int
+{
+    $user = current_user();
+    if (is_array($user)) {
+        return (int) ($user['id'] ?? 0);
+    }
+
+    $sessionUser = $_SESSION['user'] ?? null;
+    if (is_array($sessionUser)) {
+        return (int) ($sessionUser['id'] ?? 0);
+    }
+
+    return max(0, (int) ($_SESSION['id'] ?? 0));
+}
+
+function current_user_role(): string
+{
+    $user = current_user();
+    if (is_array($user)) {
+        return strtolower((string) ($user['role'] ?? ''));
+    }
+
+    $sessionUser = $_SESSION['user'] ?? null;
+    if (is_array($sessionUser)) {
+        return strtolower((string) ($sessionUser['role'] ?? ''));
+    }
+
+    return strtolower((string) ($_SESSION['role'] ?? ''));
+}
+
 function csrf_token(): string
 {
     $token = $_SESSION['csrf_token'] ?? null;
@@ -780,14 +820,47 @@ function dashboard_counts(): array
 {
     $schema = admin_catalog_schema();
     $booksTable = $schema['books_table'];
+    $reviewsTable = $schema['reviews_table'];
     $authorListsTable = $schema['author_lists_table'];
+    $authorListsAuthorColumn = $schema['author_lists_author_column'];
     $transactionsTable = $schema['transactions_table'];
+    $transactionsUserColumn = $schema['transactions_user_column'];
 
-    return [
-        'books' => safe_table_count('Book'),
-        'reviews' => safe_table_count('Reviews'),
-        'users' => safe_table_count('users'),
-        ];
+    $counts = [
+        'books' => safe_table_count($booksTable),
+        'live_books' => null,
+        'pending_books' => null,
+        'users' => safe_table_count('Users'),
+        'authors' => null,
+        'transactions' => safe_table_count($transactionsTable),
+        'reviews' => safe_table_count($reviewsTable),
+        'author_links' => safe_table_count($authorListsTable),
+    ];
+
+    if ($booksTable !== null) {
+        $counts['live_books'] = safe_scalar_count(
+            'SELECT COUNT(*) FROM ' . sql_identifier($booksTable) . ' WHERE vetted = 1'
+        );
+        $counts['pending_books'] = safe_scalar_count(
+            'SELECT COUNT(*) FROM ' . sql_identifier($booksTable) . ' WHERE vetted = 0'
+        );
+    }
+
+    $counts['authors'] = safe_scalar_count('SELECT COUNT(*) FROM `Users` WHERE role = ?', ['author']);
+
+    if ($transactionsTable !== null && $transactionsUserColumn !== null) {
+        $counts['transactions'] = safe_scalar_count(
+            'SELECT COUNT(*) FROM ' . sql_identifier($transactionsTable)
+        );
+    }
+
+    if ($authorListsTable !== null && $authorListsAuthorColumn !== null) {
+        $counts['author_links'] = safe_scalar_count(
+            'SELECT COUNT(*) FROM ' . sql_identifier($authorListsTable)
+        );
+    }
+
+    return $counts;
 }
 
 function sql_identifier(string $identifier): string
@@ -801,8 +874,7 @@ function sql_identifier(string $identifier): string
 
 function safe_table_count(?string $tableName): ?int
 {
-    $allowedTables = ['Book', 'Reviews', 'Users'];
-    if (!in_array($tableName, $allowedTables, true)) {
+    if (!is_string($tableName) || $tableName === '') {
         return null;
     }
 
@@ -885,6 +957,7 @@ function admin_catalog_schema(): array
         'author_lists_author_column' => $authorListsTable === null ? null : first_available_column($authorListsTable, ['author_id', 'authorID']),
         'transactions_table' => $transactionsTable,
         'transactions_user_column' => $transactionsTable === null ? null : first_available_column($transactionsTable, ['user_id', 'userID']),
+        'reviews_table' => first_available_table(['Reviews', 'Review']),
     ];
 
     return $schema;
@@ -892,36 +965,331 @@ function admin_catalog_schema(): array
 
 function count_books_sold_by_author()
 {
-    $statement = db()->prepare('SELECT COUNT(*) FROM Transactions INNER JOIN Books on(Books.bookID=Transactions.bookID) INNER JOIN AuthorLists on(Books.bookID=AuthorLists.bookID) WHERE AuthorLists.author_id= ?');
-    $statement->execute([$_SESSION['id']]);
-    $count = $statement->fetch()["COUNT(*)"];
-    return $count;
+    $schema = admin_catalog_schema();
+    $transactionsTable = $schema['transactions_table'];
+    $authorListsTable = $schema['author_lists_table'];
+    $authorListsAuthorColumn = $schema['author_lists_author_column'];
+    $userId = current_user_id();
+
+    if ($userId <= 0 || $transactionsTable === null || $authorListsTable === null || $authorListsAuthorColumn === null) {
+        return 0;
+    }
+
+    try {
+        $statement = db()->prepare(
+            'SELECT COUNT(*)
+             FROM ' . sql_identifier($transactionsTable) . ' t
+             INNER JOIN ' . sql_identifier($authorListsTable) . ' al ON al.bookID = t.bookID
+             WHERE al.' . sql_identifier($authorListsAuthorColumn) . ' = ?'
+        );
+        $statement->execute([$userId]);
+        $count = $statement->fetchColumn();
+
+        return $count === false ? 0 : (int) $count;
+    } catch (Throwable $error) {
+        log_server_error('count-books-sold-by-author', $error);
+        return 0;
+    }
 }
 
 function count_books_by_author(){
-    $statement = db()->prepare('SELECT COUNT(*) FROM Books INNER JOIN AuthorLists on(Books.bookID=AuthorLists.bookID) WHERE Books.vetted=1 AND AuthorLists.author_ID= ?');
-    $statement->execute([$_SESSION['id']]);
-    $count = $statement->fetch()["COUNT(*)"];
-    return $count;
+    $schema = admin_catalog_schema();
+    $booksTable = $schema['books_table'];
+    $authorListsTable = $schema['author_lists_table'];
+    $authorListsAuthorColumn = $schema['author_lists_author_column'];
+    $userId = current_user_id();
+
+    if ($userId <= 0 || $booksTable === null || $authorListsTable === null || $authorListsAuthorColumn === null) {
+        return 0;
+    }
+
+    try {
+        $statement = db()->prepare(
+            'SELECT COUNT(DISTINCT b.bookID)
+             FROM ' . sql_identifier($booksTable) . ' b
+             INNER JOIN ' . sql_identifier($authorListsTable) . ' al ON al.bookID = b.bookID
+             WHERE al.' . sql_identifier($authorListsAuthorColumn) . ' = ?'
+        );
+        $statement->execute([$userId]);
+        $count = $statement->fetchColumn();
+
+        return $count === false ? 0 : (int) $count;
+    } catch (Throwable $error) {
+        log_server_error('count-books-by-author', $error);
+        return 0;
+    }
 }
 
 function sales_by_author_by_date(){
-    $statement = db()->prepare('SELECT COUNT(user_id) AS Sales,date_of_purchase AS Dates FROM bookstore.Transactions INNER JOIN AuthorLists ON (AuthorLists.bookID = Transactions.bookID) WHERE AuthorLists.author_id=? GROUP BY Transactions.date_of_purchase;');
-    $statement->execute([$_SESSION['id']]);
-    $sales = $statement->fetchAll();
-    return $sales;
+    $schema = admin_catalog_schema();
+    $transactionsTable = $schema['transactions_table'];
+    $transactionsUserColumn = $schema['transactions_user_column'];
+    $authorListsTable = $schema['author_lists_table'];
+    $authorListsAuthorColumn = $schema['author_lists_author_column'];
+    $userId = current_user_id();
+    $chart = ['Dates' => [], 'Sales' => []];
+
+    if (
+        $userId <= 0
+        || $transactionsTable === null
+        || $transactionsUserColumn === null
+        || $authorListsTable === null
+        || $authorListsAuthorColumn === null
+    ) {
+        return $chart;
+    }
+
+    try {
+        $statement = db()->prepare(
+            'SELECT COUNT(t.' . sql_identifier($transactionsUserColumn) . ') AS sales_count,
+                    t.date_of_purchase AS purchase_date
+             FROM ' . sql_identifier($transactionsTable) . ' t
+             INNER JOIN ' . sql_identifier($authorListsTable) . ' al ON al.bookID = t.bookID
+             WHERE al.' . sql_identifier($authorListsAuthorColumn) . ' = ?
+             GROUP BY t.date_of_purchase
+             ORDER BY t.date_of_purchase ASC'
+        );
+        $statement->execute([$userId]);
+        $rows = $statement->fetchAll();
+
+        foreach ($rows as $row) {
+            $chart['Dates'][] = (string) ($row['purchase_date'] ?? '');
+            $chart['Sales'][] = (int) ($row['sales_count'] ?? 0);
+        }
+
+        return $chart;
+    } catch (Throwable $error) {
+        log_server_error('sales-by-author-by-date', $error);
+        return $chart;
+    }
 }
 
 
 function upload_book(string $title, float $price, string $blurb, string $image, string $pdf){
-    $statement = db()->prepare('INSERT INTO Book values(?,?,?,?,?,0,?)');
-    $statement->execute([$title,$price,$blurb,$image,$pdf,date("Y-m-d")]);
+    $schema = admin_catalog_schema();
+    $booksTable = $schema['books_table'];
+    $authorListsTable = $schema['author_lists_table'];
+    $authorListsAuthorColumn = $schema['author_lists_author_column'];
+    $userId = current_user_id();
 
-    $last_id=$statement()->lastInsetId();
+    if ($booksTable === null || $authorListsTable === null || $authorListsAuthorColumn === null) {
+        throw new RuntimeException('Catalog tables are unavailable for author uploads.');
+    }
 
-    $statement = db()->prepare('INSERT INTO AuthorList values(?,?)');
-    $statement->execute([$last_id,$_SESSION['id']]);
+    if ($userId <= 0) {
+        throw new RuntimeException('A signed-in author account is required to upload a book.');
+    }
 
+    $pdo = db();
+
+    try {
+        $pdo->beginTransaction();
+
+        $statement = $pdo->prepare(
+            'INSERT INTO ' . sql_identifier($booksTable) . '
+             (title, price, blurb, image, pdf_refrence_path, vetted, created_date)
+             VALUES (?, ?, ?, ?, ?, 0, ?)'
+        );
+        $statement->execute([$title, $price, $blurb, $image, $pdf, date('Y-m-d')]);
+
+        $lastId = (int) $pdo->lastInsertId();
+        if ($lastId <= 0) {
+            throw new RuntimeException('The uploaded book could not be persisted.');
+        }
+
+        $linkStatement = $pdo->prepare(
+            'INSERT INTO ' . sql_identifier($authorListsTable) . ' (bookID, ' . sql_identifier($authorListsAuthorColumn) . ')
+             VALUES (?, ?)'
+        );
+        $linkStatement->execute([$lastId, $userId]);
+
+        $pdo->commit();
+    } catch (Throwable $error) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+
+        log_server_error('upload-book', $error);
+        throw $error;
+    }
+}
+
+function sanitize_uploaded_filename(string $filename, string $fallbackBase): string
+{
+    $filename = trim(str_replace('\\', '/', $filename));
+    $basename = basename($filename);
+    $extension = strtolower((string) pathinfo($basename, PATHINFO_EXTENSION));
+    $name = (string) pathinfo($basename, PATHINFO_FILENAME);
+    $name = preg_replace('/[^A-Za-z0-9._-]+/', '-', $name) ?? '';
+    $name = trim($name, '-._');
+
+    if ($name === '') {
+        $name = $fallbackBase;
+    }
+
+    return $extension !== '' ? $name . '.' . $extension : $name;
+}
+
+function unique_upload_target_path(string $directory, string $filename): string
+{
+    $directory = rtrim($directory, '/\\');
+    $pathInfo = pathinfo($filename);
+    $name = (string) ($pathInfo['filename'] ?? 'upload');
+    $extension = strtolower((string) ($pathInfo['extension'] ?? ''));
+    $candidate = $directory . DIRECTORY_SEPARATOR . $filename;
+    $suffix = 1;
+
+    while (file_exists($candidate)) {
+        $candidateName = $name . '-' . $suffix;
+        if ($extension !== '') {
+            $candidateName .= '.' . $extension;
+        }
+        $candidate = $directory . DIRECTORY_SEPARATOR . $candidateName;
+        $suffix++;
+    }
+
+    return $candidate;
+}
+
+function upload_error_message(int $errorCode, string $label): string
+{
+    $messages = [
+        UPLOAD_ERR_INI_SIZE => $label . ' exceeds the server upload limit.',
+        UPLOAD_ERR_FORM_SIZE => $label . ' exceeds the supported size limit.',
+        UPLOAD_ERR_PARTIAL => $label . ' was only partially uploaded.',
+        UPLOAD_ERR_NO_FILE => $label . ' is required.',
+        UPLOAD_ERR_NO_TMP_DIR => 'The server is missing a temporary upload directory.',
+        UPLOAD_ERR_CANT_WRITE => 'The server could not write the uploaded file.',
+        UPLOAD_ERR_EXTENSION => $label . ' was blocked by a server extension.',
+    ];
+
+    return $messages[$errorCode] ?? ('The server could not upload the ' . strtolower($label) . '.');
+}
+
+function validate_legacy_author_upload_file(array $file, string $label, array $extensions, int $maxBytes): string
+{
+    $errorCode = (int) ($file['error'] ?? UPLOAD_ERR_NO_FILE);
+    if ($errorCode !== UPLOAD_ERR_OK) {
+        return upload_error_message($errorCode, $label);
+    }
+
+    $tmpName = (string) ($file['tmp_name'] ?? '');
+    if ($tmpName === '' || !is_uploaded_file($tmpName)) {
+        return $label . ' could not be read from the upload stream.';
+    }
+
+    $size = (int) ($file['size'] ?? 0);
+    if ($size <= 0) {
+        return $label . ' is empty.';
+    }
+
+    if ($size > $maxBytes) {
+        return $label . ' is too large.';
+    }
+
+    $extension = strtolower((string) pathinfo((string) ($file['name'] ?? ''), PATHINFO_EXTENSION));
+    if (!in_array($extension, $extensions, true)) {
+        return $label . ' must be one of: ' . implode(', ', $extensions) . '.';
+    }
+
+    return '';
+}
+
+function handle_legacy_author_upload_post_if_needed(): void
+{
+    if (!is_current_script('author-upload.php') || request_method() !== 'POST') {
+        return;
+    }
+
+    no_cache();
+    $user = require_login();
+    $role = strtolower((string) ($user['role'] ?? ''));
+
+    if ($role !== 'author' && $role !== 'admin') {
+        send_forbidden_page('Forbidden', 'Your account is signed in, but it does not have author upload access.');
+    }
+
+    $title = trim((string) ($_POST['title'] ?? ''));
+    $priceRaw = trim((string) ($_POST['price'] ?? ''));
+    $blurb = trim((string) ($_POST['blurb'] ?? ''));
+
+    if ($title === '' || $priceRaw === '' || $blurb === '') {
+        send_text(422, 'Title, price, and blurb are required.');
+    }
+
+    if (!is_numeric($priceRaw)) {
+        send_text(422, 'Price must be a numeric value.');
+    }
+
+    $imageFile = $_FILES['image'] ?? null;
+    $pdfFile = $_FILES['bookPDF'] ?? null;
+
+    if (!is_array($imageFile) || !is_array($pdfFile)) {
+        send_text(422, 'Both the cover image and PDF are required.');
+    }
+
+    $imageError = validate_legacy_author_upload_file($imageFile, 'Cover image', ['jpg', 'jpeg', 'png', 'gif'], 100000000);
+    if ($imageError !== '') {
+        send_text(422, $imageError);
+    }
+
+    $pdfError = validate_legacy_author_upload_file($pdfFile, 'PDF file', ['pdf'], 100000000);
+    if ($pdfError !== '') {
+        send_text(422, $pdfError);
+    }
+
+    if (getimagesize((string) ($imageFile['tmp_name'] ?? '')) === false) {
+        send_text(422, 'Cover image must be a valid image file.');
+    }
+
+    $pdfMime = '';
+    if (function_exists('finfo_open')) {
+        $finfo = finfo_open(FILEINFO_MIME_TYPE);
+        if ($finfo !== false) {
+            $pdfMime = (string) finfo_file($finfo, (string) ($pdfFile['tmp_name'] ?? ''));
+            finfo_close($finfo);
+        }
+    }
+
+    if ($pdfMime !== '' && $pdfMime !== 'application/pdf') {
+        send_text(422, 'Book upload must be a PDF file.');
+    }
+
+    $uploadsDir = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'uploads';
+    if (!is_dir($uploadsDir) && !mkdir($uploadsDir, 0775, true) && !is_dir($uploadsDir)) {
+        send_text(500, 'The uploads directory could not be created.');
+    }
+
+    $imageFilename = sanitize_uploaded_filename((string) ($imageFile['name'] ?? ''), 'cover');
+    $pdfFilename = sanitize_uploaded_filename((string) ($pdfFile['name'] ?? ''), 'book');
+    $imageTarget = unique_upload_target_path($uploadsDir, $imageFilename);
+    $pdfTarget = unique_upload_target_path($uploadsDir, $pdfFilename);
+
+    if (!move_uploaded_file((string) ($imageFile['tmp_name'] ?? ''), $imageTarget)) {
+        send_text(500, 'The cover image could not be saved.');
+    }
+
+    if (!move_uploaded_file((string) ($pdfFile['tmp_name'] ?? ''), $pdfTarget)) {
+        @unlink($imageTarget);
+        send_text(500, 'The PDF file could not be saved.');
+    }
+
+    $relativeImagePath = 'uploads/' . basename($imageTarget);
+    $relativePdfPath = 'uploads/' . basename($pdfTarget);
+
+    try {
+        upload_book($title, (float) $priceRaw, $blurb, $relativeImagePath, $relativePdfPath);
+    } catch (Throwable $error) {
+        @unlink($imageTarget);
+        @unlink($pdfTarget);
+        send_text(500, 'The uploaded files were saved, but the book record could not be created.');
+    }
+
+    flash_set('library_notice', [
+        'type' => 'success',
+        'message' => 'Your book was uploaded successfully and is now linked to your account.',
+    ]);
+    redirect_to('library.php', 303);
 }
 
 function get_all_users(string $roleFilter = 'all'): array
@@ -1252,6 +1620,12 @@ function admin_user_roles(): array
     return ['customer', 'author', 'admin'];
 }
 
+function review_table_name(): ?string
+{
+    $schema = admin_catalog_schema();
+    return $schema['reviews_table'] ?? null;
+}
+
 function update_user_role_from_admin(int $targetUserId, string $newRole, int $actingAdminId): string
 {
     $newRole = strtolower(trim($newRole));
@@ -1291,6 +1665,181 @@ function update_user_role_from_admin(int $targetUserId, string $newRole, int $ac
     }
 }
 
+function delete_user_from_admin(int $targetUserId, int $actingAdminId): string
+{
+    if ($targetUserId <= 0) {
+        return 'invalid_user';
+    }
+
+    if ($targetUserId === $actingAdminId) {
+        return 'cannot_delete_own_account';
+    }
+
+    $schema = admin_catalog_schema();
+    $transactionsTable = $schema['transactions_table'];
+    $transactionsUserColumn = $schema['transactions_user_column'];
+    $authorListsTable = $schema['author_lists_table'];
+    $authorListsAuthorColumn = $schema['author_lists_author_column'];
+    $pdo = db();
+
+    try {
+        $statement = $pdo->prepare('SELECT id, email FROM Users WHERE id = ? LIMIT 1');
+        $statement->execute([$targetUserId]);
+        $user = $statement->fetch();
+
+        if (!is_array($user)) {
+            return 'invalid_user';
+        }
+
+        $pdo->beginTransaction();
+
+        if ($transactionsTable !== null && $transactionsUserColumn !== null) {
+            $deleteTransactions = $pdo->prepare(
+                'DELETE FROM ' . sql_identifier($transactionsTable) . '
+                 WHERE ' . sql_identifier($transactionsUserColumn) . ' = ?'
+            );
+            $deleteTransactions->execute([$targetUserId]);
+        }
+
+        if ($authorListsTable !== null && $authorListsAuthorColumn !== null) {
+            $deleteAuthorLinks = $pdo->prepare(
+                'DELETE FROM ' . sql_identifier($authorListsTable) . '
+                 WHERE ' . sql_identifier($authorListsAuthorColumn) . ' = ?'
+            );
+            $deleteAuthorLinks->execute([$targetUserId]);
+        }
+
+        $deletePasswordResets = $pdo->prepare('DELETE FROM PasswordResets WHERE user_id = ?');
+        $deletePasswordResets->execute([$targetUserId]);
+
+        $deleteLoginAttempts = $pdo->prepare('DELETE FROM LoginAttempts WHERE email = ?');
+        $deleteLoginAttempts->execute([(string) ($user['email'] ?? '')]);
+
+        $deleteUser = $pdo->prepare('DELETE FROM Users WHERE id = ? LIMIT 1');
+        $deleteUser->execute([$targetUserId]);
+
+        $pdo->commit();
+        return '';
+    } catch (Throwable $error) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+
+        log_server_error('admin-delete-user', $error);
+        return 'server_error';
+    }
+}
+
+function delete_book_from_admin(int $bookId): string
+{
+    if ($bookId <= 0) {
+        return 'invalid_book';
+    }
+
+    $schema = admin_catalog_schema();
+    $booksTable = $schema['books_table'];
+    $transactionsTable = $schema['transactions_table'];
+    $authorListsTable = $schema['author_lists_table'];
+
+    if ($booksTable === null) {
+        return 'catalog_unavailable';
+    }
+
+    $pdo = db();
+
+    try {
+        $exists = $pdo->prepare('SELECT 1 FROM ' . sql_identifier($booksTable) . ' WHERE bookID = ? LIMIT 1');
+        $exists->execute([$bookId]);
+        if ($exists->fetchColumn() === false) {
+            return 'invalid_book';
+        }
+
+        $pdo->beginTransaction();
+
+        if ($transactionsTable !== null) {
+            $deleteTransactions = $pdo->prepare(
+                'DELETE FROM ' . sql_identifier($transactionsTable) . ' WHERE bookID = ?'
+            );
+            $deleteTransactions->execute([$bookId]);
+        }
+
+        if ($authorListsTable !== null) {
+            $deleteAuthorLinks = $pdo->prepare(
+                'DELETE FROM ' . sql_identifier($authorListsTable) . ' WHERE bookID = ?'
+            );
+            $deleteAuthorLinks->execute([$bookId]);
+        }
+
+        $deleteBook = $pdo->prepare(
+            'DELETE FROM ' . sql_identifier($booksTable) . ' WHERE bookID = ? LIMIT 1'
+        );
+        $deleteBook->execute([$bookId]);
+
+        $pdo->commit();
+        return '';
+    } catch (Throwable $error) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+
+        log_server_error('admin-delete-book', $error);
+        return 'server_error';
+    }
+}
+
+function delete_transaction_from_admin(int $userId, int $bookId, string $purchaseDate): string
+{
+    if ($userId <= 0 || $bookId <= 0) {
+        return 'invalid_transaction';
+    }
+
+    $normalizedDate = trim($purchaseDate);
+    $timestamp = strtotime($normalizedDate);
+    if ($timestamp === false) {
+        return 'invalid_transaction';
+    }
+
+    $normalizedDate = date('Y-m-d', $timestamp);
+
+    $schema = admin_catalog_schema();
+    $transactionsTable = $schema['transactions_table'];
+    $transactionsUserColumn = $schema['transactions_user_column'];
+
+    if ($transactionsTable === null || $transactionsUserColumn === null) {
+        return 'invalid_transaction';
+    }
+
+    try {
+        $exists = db()->prepare(
+            'SELECT 1
+             FROM ' . sql_identifier($transactionsTable) . '
+             WHERE ' . sql_identifier($transactionsUserColumn) . ' = ?
+               AND bookID = ?
+               AND date_of_purchase = ?
+             LIMIT 1'
+        );
+        $exists->execute([$userId, $bookId, $normalizedDate]);
+
+        if ($exists->fetchColumn() === false) {
+            return 'invalid_transaction';
+        }
+
+        $delete = db()->prepare(
+            'DELETE FROM ' . sql_identifier($transactionsTable) . '
+             WHERE ' . sql_identifier($transactionsUserColumn) . ' = ?
+               AND bookID = ?
+               AND date_of_purchase = ?
+             LIMIT 1'
+        );
+        $delete->execute([$userId, $bookId, $normalizedDate]);
+
+        return '';
+    } catch (Throwable $error) {
+        log_server_error('admin-delete-transaction', $error);
+        return 'server_error';
+    }
+}
+
 function get_admin_reviews(): array
 {
     return get_reviews();
@@ -1302,15 +1851,20 @@ function delete_review_from_admin(int $reviewId): string
         return 'invalid_review';
     }
 
+    $reviewsTable = review_table_name();
+    if ($reviewsTable === null) {
+        return 'server_error';
+    }
+
     try {
-        $exists = db()->prepare('SELECT 1 FROM Review WHERE reviewID = ? LIMIT 1');
+        $exists = db()->prepare('SELECT 1 FROM ' . sql_identifier($reviewsTable) . ' WHERE reviewID = ? LIMIT 1');
         $exists->execute([$reviewId]);
 
         if ($exists->fetchColumn() === false) {
             return 'invalid_review';
         }
 
-        $delete = db()->prepare('DELETE FROM Review WHERE reviewID = ? LIMIT 1');
+        $delete = db()->prepare('DELETE FROM ' . sql_identifier($reviewsTable) . ' WHERE reviewID = ? LIMIT 1');
         $delete->execute([$reviewId]);
 
         return '';
@@ -1461,9 +2015,14 @@ function get_admin_transaction_report(): array
 
 function save_review(string $reviewerName, string $bookTitle, int $rating, string $content): bool
 {
+    $reviewsTable = review_table_name();
+    if ($reviewsTable === null) {
+        return false;
+    }
+
     try {
         $statement = db()->prepare(
-            'INSERT INTO Reviews (reviewer_name, book_title, content, rating, created_date)
+            'INSERT INTO ' . sql_identifier($reviewsTable) . ' (reviewer_name, book_title, content, rating, created_date)
              VALUES (?, ?, ?, ?, CURDATE())'
         );
         $statement->execute([$reviewerName, $bookTitle, $content, $rating]);
@@ -1476,11 +2035,16 @@ function save_review(string $reviewerName, string $bookTitle, int $rating, strin
 
 function get_reviews(): array
 {
+    $reviewsTable = review_table_name();
+    if ($reviewsTable === null) {
+        return [];
+    }
+
     try {
         $statement = db()->query(
             'SELECT reviewID AS id, reviewer_name AS name, book_title AS book,
                     content AS text, rating, created_date AS date
-             FROM Reviews
+             FROM ' . sql_identifier($reviewsTable) . '
              ORDER BY created_date DESC, reviewID DESC'
         );
         $rows = $statement->fetchAll();
@@ -1715,3 +2279,5 @@ function record_transactions_for_user(int $userId, array $bookIds): int
 
     return $inserted;
 }
+
+handle_legacy_author_upload_post_if_needed();

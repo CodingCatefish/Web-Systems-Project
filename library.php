@@ -6,6 +6,7 @@ require_once __DIR__ . '/includes/auth.php';
 no_cache();
 $user = require_login();
 $books = fetch_library_books_for_user($user);
+$libraryNotice = flash_get('library_notice');
 
 function library_meta_text(array $book): string
 {
@@ -68,6 +69,19 @@ function library_meta_text(array $book): string
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
       gap: 1rem;
+    }
+
+    .library-notice {
+      padding: 0.95rem 1.1rem;
+      border-radius: 18px;
+      border: 1px solid rgba(26, 32, 44, 0.08);
+      font-weight: 700;
+      line-height: 1.6;
+    }
+
+    .library-notice-success {
+      background: #ddf5e5;
+      color: #1a6b3d;
     }
 
     .library-card {
@@ -160,6 +174,12 @@ function library_meta_text(array $book): string
             <h1 class="library-title">Your Library</h1>
             <p class="library-copy">Books you purchase through the digital checkout are available here to open in the embedded reader.</p>
           </section>
+
+          <?php if (is_array($libraryNotice) && isset($libraryNotice['message'], $libraryNotice['type'])): ?>
+            <section class="library-notice library-notice-<?= e((string) $libraryNotice['type']) ?> reveal" role="status" aria-live="polite">
+              <?= e((string) $libraryNotice['message']) ?>
+            </section>
+          <?php endif; ?>
 
           <?php if ($books === []): ?>
             <section class="library-empty reveal">

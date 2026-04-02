@@ -57,14 +57,19 @@ function admin_notice_message(string $code): string
 {
     $messages = [
         'book_saved' => 'Book changes saved.',
+        'book_deleted' => 'Book removed.',
         'role_saved' => 'User role updated.',
+        'user_deleted' => 'User removed.',
+        'transaction_deleted' => 'Transaction removed.',
         'review_deleted' => 'Review removed.',
         'invalid_action' => 'That admin action is not supported.',
         'invalid_book' => 'That book could not be found.',
         'invalid_user' => 'That user could not be found.',
         'invalid_role' => 'That role is not supported.',
         'cannot_change_own_role' => 'Your own admin role cannot be removed from this dashboard.',
+        'cannot_delete_own_account' => 'Your own admin account cannot be deleted from this dashboard.',
         'invalid_review' => 'That review could not be found.',
+        'invalid_transaction' => 'That transaction could not be found.',
         'invalid_title' => 'Book titles are required and must stay within the field limit.',
         'invalid_price' => 'Prices must be numeric and zero or higher.',
         'invalid_blurb' => 'Blurbs must stay within the supported length.',
@@ -120,6 +125,9 @@ if (request_method() === 'POST') {
     $profileUserId = max(0, (int) ($_POST['profile_user_id'] ?? 0));
     $selectedBookId = max(0, (int) ($_POST['selected_book_id'] ?? 0));
     $selectedReviewId = max(0, (int) ($_POST['selected_review_id'] ?? 0));
+    $selectedTransactionUserId = max(0, (int) ($_POST['transaction_user_id'] ?? 0));
+    $selectedTransactionBookId = max(0, (int) ($_POST['transaction_book_id'] ?? 0));
+    $selectedTransactionDate = trim((string) ($_POST['transaction_purchase_date'] ?? ''));
     $returnSection = (string) ($_POST['return_section'] ?? 'catalog');
     $action = trim((string) ($_POST['admin_action'] ?? ''));
 
@@ -163,6 +171,39 @@ if (request_method() === 'POST') {
         flash_set('admin_notice', [
             'type' => $result === '' ? 'success' : 'error',
             'message' => admin_notice_message($result === '' ? 'review_deleted' : $result),
+        ]);
+    } elseif ($action === 'delete_user') {
+        $result = delete_user_from_admin($profileUserId, (int) ($adminUser['id'] ?? 0));
+
+        if ($result === '') {
+            unset($redirectParams['user']);
+        }
+
+        flash_set('admin_notice', [
+            'type' => $result === '' ? 'success' : 'error',
+            'message' => admin_notice_message($result === '' ? 'user_deleted' : $result),
+        ]);
+    } elseif ($action === 'delete_book') {
+        $result = delete_book_from_admin($selectedBookId);
+
+        if ($result === '') {
+            unset($redirectParams['book']);
+        }
+
+        flash_set('admin_notice', [
+            'type' => $result === '' ? 'success' : 'error',
+            'message' => admin_notice_message($result === '' ? 'book_deleted' : $result),
+        ]);
+    } elseif ($action === 'delete_transaction') {
+        $result = delete_transaction_from_admin(
+            $selectedTransactionUserId,
+            $selectedTransactionBookId,
+            $selectedTransactionDate
+        );
+
+        flash_set('admin_notice', [
+            'type' => $result === '' ? 'success' : 'error',
+            'message' => admin_notice_message($result === '' ? 'transaction_deleted' : $result),
         ]);
     } else {
         flash_set('admin_notice', ['type' => 'error', 'message' => admin_notice_message('invalid_action')]);
@@ -386,6 +427,20 @@ if ($selectedUser === null && $users !== []) {
                   </div>
                 </form>
 
+                <h3 style="margin-top:1rem;">Account Removal</h3>
+                <form action="admin.php#users" method="POST" onsubmit="return confirm('Delete this user account? This will also remove the user\\'s recorded purchases and author links.');">
+                  <?= csrf_input() ?>
+                  <input type="hidden" name="admin_action" value="delete_user">
+                  <input type="hidden" name="profile_user_id" value="<?= e((string) $selectedUserId) ?>">
+                  <input type="hidden" name="selected_book_id" value="<?= e((string) $selectedBookId) ?>">
+                  <input type="hidden" name="user_role_filter" value="<?= e($currentRoleFilter) ?>">
+                  <input type="hidden" name="catalog_filter" value="<?= e($currentCatalogFilter) ?>">
+                  <input type="hidden" name="return_section" value="users">
+                  <div class="admin-form-row" style="margin-top:.75rem;">
+                    <button class="admin-button" type="submit">Delete User</button>
+                  </div>
+                </form>
+
                 <h3 style="margin-top:1rem;">Recent Purchases</h3>
                 <?php if (($selectedUser['recent_purchases'] ?? []) === []): ?>
                   <p class="admin-note">No recorded purchases for this account.</p>
@@ -471,7 +526,22 @@ if ($selectedUser === null && $users !== []) {
 
                     <div class="admin-form-row">
                       <label><input type="checkbox" name="is_vetted" value="1"<?= $isLive ? ' checked' : '' ?>> Visible on storefront</label>
-                      <button class="admin-button" type="submit">Save Book Changes</button>
+                      <div style="display:flex; gap:.75rem; flex-wrap:wrap;">
+                        <button class="admin-button" type="submit">Save Book Changes</button>
+                      </div>
+                    </div>
+                  </form>
+
+                  <form class="admin-book-form" action="admin.php#catalog" method="POST" onsubmit="return confirm('Delete this book? This will also remove any related author links and recorded transactions.');">
+                    <?= csrf_input() ?>
+                    <input type="hidden" name="admin_action" value="delete_book">
+                    <input type="hidden" name="selected_book_id" value="<?= e((string) $bookId) ?>">
+                    <input type="hidden" name="profile_user_id" value="<?= e((string) $selectedUserId) ?>">
+                    <input type="hidden" name="user_role_filter" value="<?= e($currentRoleFilter) ?>">
+                    <input type="hidden" name="catalog_filter" value="<?= e($currentCatalogFilter) ?>">
+                    <input type="hidden" name="return_section" value="catalog">
+                    <div class="admin-form-row">
+                      <button class="admin-button" type="submit">Delete Book</button>
                     </div>
                   </form>
                 </details>
@@ -543,7 +613,7 @@ if ($selectedUser === null && $users !== []) {
                 <?php else: ?>
                   <table class="admin-table">
                     <thead>
-                      <tr><th>Date</th><th>Customer</th><th>Book</th><th>Current Price</th></tr>
+                      <tr><th>Date</th><th>Customer</th><th>Book</th><th>Current Price</th><th>Action</th></tr>
                     </thead>
                     <tbody>
                       <?php foreach ((array) $transactionReport['recent_transactions'] as $transaction): ?>
@@ -552,6 +622,21 @@ if ($selectedUser === null && $users !== []) {
                           <td><strong><?= e((string) ($transaction['customer_name'] ?? 'Unknown User')) ?></strong><br><span><?= e((string) ($transaction['customer_email'] ?? '')) ?></span></td>
                           <td><?= e((string) ($transaction['book_title'] ?? 'Unknown Book')) ?></td>
                           <td><?= e(format_admin_money($transaction['current_price'] ?? 0)) ?></td>
+                          <td>
+                            <form action="admin.php#reports" method="POST" onsubmit="return confirm('Delete this transaction record?');">
+                              <?= csrf_input() ?>
+                              <input type="hidden" name="admin_action" value="delete_transaction">
+                              <input type="hidden" name="profile_user_id" value="<?= e((string) $selectedUserId) ?>">
+                              <input type="hidden" name="selected_book_id" value="<?= e((string) $selectedBookId) ?>">
+                              <input type="hidden" name="transaction_user_id" value="<?= e((string) ((int) ($transaction['user_id'] ?? 0))) ?>">
+                              <input type="hidden" name="transaction_book_id" value="<?= e((string) ((int) ($transaction['bookID'] ?? 0))) ?>">
+                              <input type="hidden" name="transaction_purchase_date" value="<?= e((string) ($transaction['date_of_purchase'] ?? '')) ?>">
+                              <input type="hidden" name="user_role_filter" value="<?= e($currentRoleFilter) ?>">
+                              <input type="hidden" name="catalog_filter" value="<?= e($currentCatalogFilter) ?>">
+                              <input type="hidden" name="return_section" value="reports">
+                              <button class="admin-button" type="submit">Delete</button>
+                            </form>
+                          </td>
                         </tr>
                       <?php endforeach; ?>
                     </tbody>

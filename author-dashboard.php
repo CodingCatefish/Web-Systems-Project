@@ -15,8 +15,8 @@ $bookCount = count_books_by_author();
 $bookSoldCount = count_books_sold_by_author();
 
 $SalesInfo = sales_by_author_by_date();
-$Dates = $SalesInfo["Dates"];
-$Sales = $SalesInfo["Sales"];
+$Dates = e((string) json_encode($SalesInfo['Dates'] ?? [], JSON_UNESCAPED_SLASHES));
+$Sales = e((string) json_encode($SalesInfo['Sales'] ?? [], JSON_UNESCAPED_SLASHES));
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -79,8 +79,8 @@ $Sales = $SalesInfo["Sales"];
           <canvas
             id="myChart"
             data-chart-title="Total Book Sales"
-            data-chart-labels=<?php echo $Dates ?>
-            data-chart-values=<?php echo $Sales ?>
+            data-chart-labels='<?= $Dates ?>'
+            data-chart-values='<?= $Sales ?>'
             aria-label="Line chart showing total book sales over time"
             role="img"
             style="margin: 0 auto; width: 100%; height: 100%; display: block;"></canvas>

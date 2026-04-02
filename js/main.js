@@ -654,10 +654,10 @@
     }
   }
 
-  function removeAdminMenu(nav, accountLink) {
+  function removeAccountMenu(nav, accountLink) {
     if (!nav) return;
 
-    var existing = nav.querySelector('.nav-admin-menu');
+    var existing = nav.querySelector('.nav-account-menu');
     if (existing) {
       existing.remove();
     }
@@ -668,50 +668,62 @@
     }
   }
 
-    function removeAdminMenu(nav, accountLink) {
-    if (!nav) return;
+  function getAccountMenuItems(user) {
+    var role = user && user.role ? String(user.role) : '';
+    var items = [
+      { href: 'library.php', label: 'My Library' }
+    ];
 
-    var existing = nav.querySelector('.nav-author-menu');
-    if (existing) {
-      existing.remove();
+    if (role === 'author' || role === 'admin') {
+      items.push({ href: 'author-dashboard.php', label: 'Author Dashboard' });
+      items.push({ href: 'author-upload.php', label: 'Author Book Upload' });
     }
 
-    if (accountLink) {
-      accountLink.hidden = false;
-      accountLink.style.display = '';
+    if (role === 'admin') {
+      items.push({ href: 'admin.php', label: 'Admin Dashboard' });
     }
+
+    return items;
   }
 
-  function ensureAdminMenu(nav, accountLink) {
+  function ensureAccountMenu(nav, accountLink, user, csrfToken) {
     if (!nav || !accountLink) return null;
 
-    var existing = nav.querySelector('.nav-admin-menu');
+    var existing = nav.querySelector('.nav-account-menu');
     if (existing) {
+      var existingTrigger = existing.querySelector('.nav-account-trigger');
+      var existingTokenInput = existing.querySelector('input[name="csrf_token"]');
+      if (existingTrigger) {
+        existingTrigger.textContent = getDisplayName(user && user.name) + ' v';
+        existingTrigger.title = user && user.email ? ('Signed in as ' + user.email) : 'Signed in';
+      }
+      if (existingTokenInput) {
+        existingTokenInput.value = csrfToken || '';
+      }
       return existing;
     }
 
-    var menuId = 'admin-menu-' + Math.random().toString(36).slice(2, 10);
+    var menuId = 'account-menu-' + Math.random().toString(36).slice(2, 10);
     var wrapper = document.createElement('div');
     var trigger = document.createElement('button');
     var panel = document.createElement('div');
-    var items = [
-      { href: 'library.php', label: 'My Library' },
-      { href: 'author-dashboard.php', label: 'Author Dashboard' },
-      { href: 'author-upload.php', label: 'Author Book Upload'},
-      { href: 'admin.php', label: 'Admin Dashboard' }
-    ];
+    var logoutForm = document.createElement('form');
+    var logoutTokenInput = document.createElement('input');
+    var logoutButton = document.createElement('button');
+    var items = getAccountMenuItems(user);
 
-    wrapper.className = 'nav-admin-menu';
+    wrapper.className = 'nav-account-menu';
     wrapper.style.position = 'relative';
     wrapper.style.display = 'inline-flex';
     wrapper.style.alignItems = 'center';
 
     trigger.type = 'button';
-    trigger.className = 'nav-link nav-admin-trigger';
-    trigger.textContent = 'Admin';
+    trigger.className = 'nav-link nav-account-trigger';
+    trigger.textContent = getDisplayName(user && user.name) + ' v';
     trigger.setAttribute('aria-haspopup', 'true');
     trigger.setAttribute('aria-expanded', 'false');
     trigger.setAttribute('aria-controls', menuId);
+    trigger.title = user && user.email ? ('Signed in as ' + user.email) : 'Signed in';
     trigger.style.display = 'inline-flex';
     trigger.style.alignItems = 'center';
     trigger.style.gap = '0.45rem';
@@ -722,7 +734,7 @@
     trigger.style.cursor = 'pointer';
     wrapper.appendChild(trigger);
 
-    panel.className = 'nav-admin-panel';
+    panel.className = 'nav-account-panel';
     panel.id = menuId;
     panel.setAttribute('role', 'menu');
     panel.hidden = true;
@@ -742,7 +754,7 @@
 
     items.forEach(function (item) {
       var link = document.createElement('a');
-      link.className = 'nav-link nav-admin-item';
+      link.className = 'nav-link nav-account-item';
       link.href = item.href;
       link.textContent = item.label;
       link.setAttribute('role', 'menuitem');
@@ -757,6 +769,35 @@
       }
       panel.appendChild(link);
     });
+
+    logoutForm.className = 'nav-inline-form nav-account-logout-form';
+    logoutForm.method = 'post';
+    logoutForm.action = 'logout.php';
+    logoutForm.style.margin = '0';
+    logoutForm.style.display = 'block';
+
+    logoutTokenInput.type = 'hidden';
+    logoutTokenInput.name = 'csrf_token';
+    logoutTokenInput.value = csrfToken || '';
+    logoutForm.appendChild(logoutTokenInput);
+
+    logoutButton.type = 'submit';
+    logoutButton.className = 'nav-link nav-account-item nav-account-logout-button';
+    logoutButton.textContent = 'Logout';
+    logoutButton.setAttribute('role', 'menuitem');
+    logoutButton.style.display = 'flex';
+    logoutButton.style.alignItems = 'center';
+    logoutButton.style.width = '100%';
+    logoutButton.style.padding = '0.75rem 0.9rem';
+    logoutButton.style.borderRadius = '0.85rem';
+    logoutButton.style.border = '0';
+    logoutButton.style.background = 'transparent';
+    logoutButton.style.cursor = 'pointer';
+    logoutButton.style.font = 'inherit';
+    logoutButton.style.color = 'inherit';
+    logoutForm.appendChild(logoutButton);
+
+    panel.appendChild(logoutForm);
 
     wrapper.appendChild(panel);
     nav.insertBefore(wrapper, accountLink);
@@ -791,144 +832,7 @@
 
       event.preventDefault();
       openMenu();
-      var firstItem = panel.querySelector('.nav-admin-item');
-      if (firstItem) {
-        firstItem.focus();
-      }
-    });
-
-    panel.addEventListener('keydown', function (event) {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        closeMenu();
-        trigger.focus();
-      }
-    });
-
-    document.addEventListener('click', function (event) {
-      if (!wrapper.contains(event.target)) {
-        closeMenu();
-      }
-    });
-
-    document.addEventListener('keydown', function (event) {
-      if (event.key === 'Escape') {
-        closeMenu();
-      }
-    });
-
-    return wrapper;
-  }
-
-  function ensureAuthorMenu(nav, accountLink) {
-    if (!nav || !accountLink) return null;
-
-    var existing = nav.querySelector('.nav-author-menu');
-    if (existing) {
-      return existing;
-    }
-
-    var menuId = 'author-menu-' + Math.random().toString(36).slice(2, 10);
-    var wrapper = document.createElement('div');
-    var trigger = document.createElement('button');
-    var panel = document.createElement('div');
-    var items = [
-      { href: 'library.php', label: 'My Library' },
-      { href: 'author-dashboard.php', label: 'Author Dashboard' },
-      { href: 'author-upload.php', label: 'Author Book Upload'},
-    ];
-
-    wrapper.className = 'nav-author-menu';
-    wrapper.style.position = 'relative';
-    wrapper.style.display = 'inline-flex';
-    wrapper.style.alignItems = 'center';
-
-    trigger.type = 'button';
-    trigger.className = 'nav-link nav-author-trigger';
-    trigger.textContent = 'Author';
-    trigger.setAttribute('aria-haspopup', 'true');
-    trigger.setAttribute('aria-expanded', 'false');
-    trigger.setAttribute('aria-controls', menuId);
-    trigger.style.display = 'inline-flex';
-    trigger.style.alignItems = 'center';
-    trigger.style.gap = '0.45rem';
-    trigger.style.border = '0';
-    trigger.style.background = 'transparent';
-    trigger.style.padding = '0';
-    trigger.style.font = 'inherit';
-    trigger.style.cursor = 'pointer';
-    wrapper.appendChild(trigger);
-
-    panel.className = 'nav-author-panel';
-    panel.id = menuId;
-    panel.setAttribute('role', 'menu');
-    panel.hidden = true;
-    panel.style.position = 'absolute';
-    panel.style.top = 'calc(100% + 0.75rem)';
-    panel.style.right = '0';
-    panel.style.minWidth = '15rem';
-    panel.style.padding = '0.45rem';
-    panel.style.border = '1px solid rgba(26, 32, 44, 0.08)';
-    panel.style.borderRadius = '12px';
-    panel.style.background = 'rgba(255, 255, 255, 0.98)';
-    panel.style.boxShadow = '0 14px 40px rgba(26, 32, 44, 0.14)';
-    panel.style.flexDirection = 'column';
-    panel.style.alignItems = 'stretch';
-    panel.style.gap = '0.2rem';
-    panel.style.zIndex = '30';
-
-    items.forEach(function (item) {
-      var link = document.createElement('a');
-      link.className = 'nav-link nav-author-item';
-      link.href = item.href;
-      link.textContent = item.label;
-      link.setAttribute('role', 'menuitem');
-      link.style.display = 'flex';
-      link.style.alignItems = 'center';
-      link.style.width = '100%';
-      link.style.padding = '0.75rem 0.9rem';
-      link.style.borderRadius = '0.85rem';
-      link.style.textDecoration = 'none';
-      if ((window.location.pathname.split('/').pop() || 'index.html') === item.href) {
-        link.classList.add('active');
-      }
-      panel.appendChild(link);
-    });
-
-    wrapper.appendChild(panel);
-    nav.insertBefore(wrapper, accountLink);
-
-    function closeMenu() {
-      wrapper.classList.remove('is-open');
-      trigger.setAttribute('aria-expanded', 'false');
-      panel.hidden = true;
-    }
-
-    function openMenu() {
-      wrapper.classList.add('is-open');
-      trigger.setAttribute('aria-expanded', 'true');
-      panel.hidden = false;
-    }
-
-    trigger.addEventListener('click', function (event) {
-      event.preventDefault();
-      event.stopPropagation();
-
-      if (wrapper.classList.contains('is-open')) {
-        closeMenu();
-      } else {
-        openMenu();
-      }
-    });
-
-    trigger.addEventListener('keydown', function (event) {
-      if (event.key !== 'ArrowDown') {
-        return;
-      }
-
-      event.preventDefault();
-      openMenu();
-      var firstItem = panel.querySelector('.nav-author-item');
+      var firstItem = panel.querySelector('.nav-account-item');
       if (firstItem) {
         firstItem.focus();
       }
@@ -1014,11 +918,12 @@
       var csrfToken = session && session.csrfToken ? session.csrfToken : '';
 
       if (!user) {
-        removeAdminMenu(nav, accountLink);
-        removeAuthorMenu(nav, accountLink);
+        removeAccountMenu(nav, accountLink);
         if (accountLink) {
           accountLink.textContent = 'Login';
           accountLink.href = 'login.php';
+          accountLink.hidden = false;
+          accountLink.style.display = '';
           accountLink.removeAttribute('title');
         }
 
@@ -1030,41 +935,20 @@
         return;
       }
 
-      if (user.role === 'admin') {
-        ensureAdminMenu(nav, accountLink);
-        if (accountLink) {
-          accountLink.hidden = true;
-          accountLink.style.display = 'none';
-          accountLink.removeAttribute('title');
-        }
-      } else {
-        removeAdminMenu(nav, accountLink);
-      }
-
-      if (user.role === 'author') {
-        ensureAuthorMenu(nav, accountLink);
-        if (accountLink) {
-          accountLink.hidden = true;
-          accountLink.style.display = 'none';
-          accountLink.removeAttribute('title');
-        }
-      } else {
-        removeAuthorMenu(nav, accountLink);
-      }
-
       if (accountLink) {
-        if (user.role !== 'admin') {
-          accountLink.textContent = getDisplayName(user.name);
-          accountLink.href = getAccountDestination(user);
-          accountLink.title = user.email ? ('Signed in as ' + user.email) : 'Signed in';
-        }
+        accountLink.textContent = getDisplayName(user.name);
+        accountLink.href = getAccountDestination(user);
+        accountLink.title = user.email ? ('Signed in as ' + user.email) : 'Signed in';
+        accountLink.hidden = true;
+        accountLink.style.display = 'none';
       }
 
       if (adminLink) {
         adminLink.style.display = 'none';
       }
 
-      ensureDynamicLogoutControl(nav, csrfToken);
+      removeDynamicLogoutControl(nav);
+      ensureAccountMenu(nav, accountLink, user, csrfToken);
     });
   }
 
