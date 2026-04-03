@@ -4,12 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/includes/auth.php';
 
 no_cache();
-$user = require_login();
-$role = (string) ($user['role'] ?? '');
-
-if ($role !== 'author' && $role !== 'admin') {
-  send_forbidden_page('Forbidden', 'Your account is signed in, but it does not have author dashboard access.');
-}
+require_author_access('Your account is signed in, but it does not have author dashboard access.');
 
 $bookCount = count_books_by_author();
 $bookSoldCount = count_books_sold_by_author();

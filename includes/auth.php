@@ -816,6 +816,23 @@ function require_admin(): array
     return $user;
 }
 
+function require_author_access(string $forbiddenMessage = 'Your account is signed in, but it does not have author access.'): array
+{
+    $user = require_login();
+    $role = strtolower((string) ($user['role'] ?? ''));
+
+    if ($role !== 'author' && $role !== 'admin') {
+        log_security_event('author_access_forbidden', [
+            'user_id' => (int) ($user['id'] ?? 0),
+            'email' => (string) ($user['email'] ?? ''),
+            'role' => (string) ($user['role'] ?? ''),
+        ]);
+        send_forbidden_page('Forbidden', $forbiddenMessage);
+    }
+
+    return $user;
+}
+
 function dashboard_counts(): array
 {
     $schema = admin_catalog_schema();
@@ -1202,12 +1219,7 @@ function handle_legacy_author_upload_post_if_needed(): void
     }
 
     no_cache();
-    $user = require_login();
-    $role = strtolower((string) ($user['role'] ?? ''));
-
-    if ($role !== 'author' && $role !== 'admin') {
-        send_forbidden_page('Forbidden', 'Your account is signed in, but it does not have author upload access.');
-    }
+    require_author_access('Your account is signed in, but it does not have author upload access.');
 
     $title = trim((string) ($_POST['title'] ?? ''));
     $priceRaw = trim((string) ($_POST['price'] ?? ''));
