@@ -348,15 +348,7 @@ async function handleLogin(request, response) {
 }
 
 function handleAdminPage(request, response) {
-  const session = getSession(request, response);
-
-  if (!session || session.role !== 'admin') {
-    sendRedirect(response, '/login.php');
-    return;
-  }
-
-  const adminPath = path.join(ROOT_DIR, 'admin.html');
-  sendFile(adminPath, response, request, { 'Cache-Control': 'no-store' });
+  sendRedirect(response, '/admin.php');
 }
 
 function handleLogout(request, response) {
@@ -459,7 +451,7 @@ const server = http.createServer((request, response) => {
   }
 
   if (routePath === '/admin.html') {
-    sendRedirect(response, '/admin');
+    sendRedirect(response, '/admin.php');
     return;
   }
 
